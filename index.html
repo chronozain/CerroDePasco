@@ -296,6 +296,7 @@
                 <option value="cliente">Por Cliente</option>
                 <option value="todos">Todos los Clientes (últimos 3 meses)</option>
                 <option value="mes">Mes Específico</option>
+                <option value="excel">Exportar a Excel</option>
             </select>
         </div>
 
@@ -798,9 +799,12 @@ html += `</tr>`;
             }
         });
         // Validar dirección existe
-function validarDireccionExiste(direccion) {
+function validarDireccionExiste(nombre, direccion) {
     const db = getDatabase();
-    return db.some(abono => abono.direccion.toLowerCase() === direccion.toLowerCase());
+    return db.some(abono => 
+        abono.direccion.toLowerCase() === direccion.toLowerCase() &&
+        abono.nombre.toLowerCase() === nombre.toLowerCase()
+    );
 }
 
 // Alta manual de deuda
@@ -817,11 +821,12 @@ document.getElementById('btnDeudaManual').addEventListener('click', function() {
         return;
     }
     
-    if (!validarDireccionExiste(direccion)) {
-        document.getElementById('deudaManualDireccion').classList.add('input-error');
-        document.getElementById('deudaManualDireccionError').classList.remove('hidden');
-        return;
-    }
+if (!validarDireccionExiste(nombre, direccion)) {
+    document.getElementById('deudaManualDireccion').classList.add('input-error');
+    document.getElementById('deudaManualDireccionError').textContent = 'La dirección no coincide con ningún propietario registrado';
+    document.getElementById('deudaManualDireccionError').classList.remove('hidden');
+    return;
+}
     
     // Registrar deuda
     const deudasDb = getDeudasDatabase();
@@ -982,6 +987,22 @@ document.getElementById('btnExportar').addEventListener('click', function() {
                 return fechaAbono.getMonth() + 1 === mes && fechaAbono.getFullYear() === añoActual;
             });
             break;
+
+            case 'excel':
+    // Crear contenido CSV
+    let contenidoCSV = "Fecha,Cliente,Dirección,Monto,Comentario\n";
+    datosExportar.forEach(abono => {
+        contenidoCSV += `"${formatDate(abono.fecha)}","${abono.nombre}","${abono.direccion}",${abono.abono.toFixed(2)},"${abono.comentario || ''}"\n`;
+    });
+    
+    // Crear y descargar archivo CSV
+    const blobCSV = new Blob([contenidoCSV], { type: 'text/csv;charset=utf-8;' });
+    const urlCSV = URL.createObjectURL(blobCSV);
+    const aCSV = document.createElement('a');
+    aCSV.href = urlCSV;
+    aCSV.download = `exportacion_condominio_${new Date().toISOString().split('T')[0]}.csv`;
+    aCSV.click();
+    break;
             
         default:
             showMessage('exportacionMessage', 'Seleccione un tipo de exportación', 'error');
