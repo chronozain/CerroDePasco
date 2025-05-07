@@ -955,14 +955,18 @@ document.getElementById('btnAlta').addEventListener('click', function() {
     document.getElementById('fecha').value = '';
     document.getElementById('codigo').value = '';
 });
-
+// Mostrar/ocultar campos según tipo de exportación
+document.getElementById('exportarTipo').addEventListener('change', function() {
+    const tipo = this.value;
+    document.getElementById('exportarClienteGroup').classList.toggle('hidden', tipo !== 'cliente');
+    document.getElementById('exportarMesGroup').classList.toggle('hidden', tipo !== 'mes');
+});
 
 // Función para exportar datos
 document.getElementById('btnExportar').addEventListener('click', function() {
     const tipo = document.getElementById('exportarTipo').value;
     const codigo = document.getElementById('exportarCodigo').value;
     
-    // Validar código
     if (codigo !== CODIGO_VALIDACION) {
         document.getElementById('exportarCodigo').classList.add('input-error');
         document.getElementById('exportarCodigoError').textContent = 'Código de acceso incorrecto';
@@ -970,53 +974,44 @@ document.getElementById('btnExportar').addEventListener('click', function() {
         return;
     }
     
-    // Obtener datos de las bases de datos
     const db = getDatabase();
     const deudasDb = getDeudasDatabase();
-    
-    // Crear objeto de deudas por dirección para fácil acceso
-    const deudasPorDireccion = {};
-    deudasDb.forEach(deuda => {
-        deudasPorDireccion[deuda.direccion.toLowerCase()] = deuda.deuda;
-    });
-    
-    // Filtrar datos según el tipo seleccionado
-    let datosFiltrados = [];
     const ahora = new Date();
-    const tresMesesAtras = new Date();
-    tresMesesAtras.setMonth(ahora.getMonth() - 3);
+    const deudasPorDireccion = {};
+    deudasDb.forEach(deuda => deudasPorDireccion[deuda.direccion.toLowerCase()] = deuda.deuda);
+    
+    let datosFiltrados = [];
+    const tresMesesAtras = new Date(ahora.setMonth(ahora.getMonth() - 3));
+    const unAnioAtras = new Date(ahora.setFullYear(ahora.getFullYear() - 1));
     
     switch(tipo) {
         case 'cliente':
-            const direccionCliente = document.getElementById('exportarCliente').value.trim().toLowerCase();
-            if (!direccionCliente) {
+            const direccion = document.getElementById('exportarCliente').value.trim().toLowerCase();
+            if (!direccion) {
                 showMessage('exportacionMessage', 'Ingrese una dirección', 'error');
                 return;
             }
             datosFiltrados = db.filter(abono => 
-                abono.direccion.toLowerCase().includes(direccionCliente)
+                abono.direccion.toLowerCase().includes(direccion) && 
+                new Date(abono.fecha) >= tresMesesAtras
             );
             break;
             
         case 'todos':
-            datosFiltrados = db.filter(abono => {
-                const fechaAbono = new Date(abono.fecha);
-                return fechaAbono >= tresMesesAtras;
-            });
+            datosFiltrados = db.filter(abono => new Date(abono.fecha) >= tresMesesAtras);
             break;
             
         case 'mes':
             const mes = parseInt(document.getElementById('exportarMes').value);
-            const añoActual = ahora.getFullYear();
-            datosFiltrados = db.filter(abono => {
-                const fechaAbono = new Date(abono.fecha);
-                return fechaAbono.getMonth() + 1 === mes && fechaAbono.getFullYear() === añoActual;
-            });
+            const añoActual = new Date().getFullYear();
+            datosFiltrados = db.filter(abono => 
+                new Date(abono.fecha).getMonth() + 1 === mes && 
+                new Date(abono.fecha).getFullYear() === añoActual
+            );
             break;
             
-        case 'csv':
-            // Para CSV exportamos todos los datos sin filtrar
-            datosFiltrados = [...db];
+        case 'completo':
+            datosFiltrados = db.filter(abono => new Date(abono.fecha) >= unAnioAtras);
             break;
             
         default:
@@ -1029,54 +1024,23 @@ document.getElementById('btnExportar').addEventListener('click', function() {
         return;
     }
     
-    // Agrupar datos por dirección para el formato CSV
-    const datosAgrupados = {};
+    datosFiltrados.sort((a, b) => a.direccion.localeCompare(b.direccion) || new Date(a.fecha) - new Date(b.fecha));
+    
+    let csvContent = "Nombre,Dirección,Fecha Abono,Monto Abono,Deuda Actual,Comentario\n";
     datosFiltrados.forEach(abono => {
-        const clave = abono.direccion.toLowerCase();
-        if (!datosAgrupados[clave]) {
-            datosAgrupados[clave] = {
-                nombre: abono.nombre,
-                direccion: abono.direccion,
-                abonos: [],
-                totalAbonos: 0,
-                deuda: deudasPorDireccion[clave] || 0
-            };
-        }
-        datosAgrupados[clave].abonos.push(abono);
-        datosAgrupados[clave].totalAbonos += abono.abono;
+        csvContent += `"${abono.nombre}","${abono.direccion}","${formatDate(abono.fecha)}",`;
+        csvContent += `"${abono.abono.toFixed(2)}","${(deudasPorDireccion[abono.direccion.toLowerCase()] || 0).toFixed(2)}","${abono.comentario || ''}"\n`;
     });
     
-    // Crear contenido CSV con el formato que ya tenías
-    let contenidoCSV = "Dirección,Propietario,Total Abonos,Deuda Actual,Balance,Fecha Abono,Monto Abono,Comentario\n";
-    
-    Object.values(datosAgrupados).forEach(grupo => {
-        let primeraFila = true;
-        
-        grupo.abonos.forEach(abono => {
-            contenidoCSV += `"${grupo.direccion}","${grupo.nombre}",`;
-            
-            if (primeraFila) {
-                contenidoCSV += `"${grupo.totalAbonos.toFixed(2)}","${grupo.deuda.toFixed(2)}","${(grupo.totalAbonos - grupo.deuda).toFixed(2)}",`;
-                primeraFila = false;
-            } else {
-                contenidoCSV += `"","","",`;
-            }
-            
-            contenidoCSV += `"${formatDate(abono.fecha)}","${abono.abono.toFixed(2)}","${abono.comentario || ''}"\n`;
-        });
-    });
-    
-    // Crear y descargar archivo CSV
-    const blob = new Blob(["\uFEFF" + contenidoCSV], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `abonos_condominio_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = `abonos_${tipo}_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     
-    // Limpiar el campo de código después de exportar
     document.getElementById('exportarCodigo').value = '';
-    showMessage('exportacionMessage', 'Datos exportados a CSV con éxito', 'success');
+    showMessage('exportacionMessage', 'CSV exportado correctamente', 'success');
 });
         
     </script>
