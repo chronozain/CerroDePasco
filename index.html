@@ -1002,6 +1002,7 @@ document.getElementById('btnExportar').addEventListener('click', function() {
         const tresMesesAtras = new Date();
         tresMesesAtras.setMonth(tresMesesAtras.getMonth() - 3);
         return fechaAbono >= tresMesesAtras;
+        }); 
   // Crear contenido CSV
     let contenidoCSV = "Fecha,Cliente,Dirección,Monto,Comentario\n";
     datosExportar.forEach(abono => {
