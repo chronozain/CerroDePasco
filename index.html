@@ -997,14 +997,19 @@ document.getElementById('btnExportar').addEventListener('click', function() {
             break;
 
             case 'excel':
-    // Crear contenido CSV
+                datosExportar = db.filter(abono => {
+        const fechaAbono = new Date(abono.fecha);
+        const tresMesesAtras = new Date();
+        tresMesesAtras.setMonth(tresMesesAtras.getMonth() - 3);
+        return fechaAbono >= tresMesesAtras;
+  // Crear contenido CSV
     let contenidoCSV = "Fecha,Cliente,Dirección,Monto,Comentario\n";
     datosExportar.forEach(abono => {
-        contenidoCSV += `"${formatDate(abono.fecha)}","${abono.nombre}","${abono.direccion}",${abono.abono.toFixed(2)},"${abono.comentario || ''}"\n`;
+        contenidoCSV += `"${formatDate(abono.fecha)}","${abono.nombre.replace(/"/g, '""')}","${abono.direccion.replace(/"/g, '""')}",${abono.abono.toFixed(2)},"${(abono.comentario || '').replace(/"/g, '""')}"\n`;
     });
     
     // Crear y descargar archivo CSV
-    const blobCSV = new Blob([contenidoCSV], { type: 'text/csv;charset=utf-8;' });
+    const blobCSV = new Blob(["\uFEFF" + contenidoCSV], { type: 'text/csv;charset=utf-8;' });
     const urlCSV = URL.createObjectURL(blobCSV);
     const aCSV = document.createElement('a');
     aCSV.href = urlCSV;
