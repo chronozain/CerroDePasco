@@ -569,32 +569,38 @@
             
             showMessage('altaMessage', 'Abono registrado con éxito', 'success');
         });
+// Eliminar abonos específicos (nombre, dirección, monto y fecha)
+document.getElementById('btnEliminar').addEventListener('click', function() {
+    if (!validarAlta()) return;
 
-        // Eliminar abonos por dirección
-        document.getElementById('btnEliminar').addEventListener('click', function() {
-            if (!validarAlta()) return;
+    const db = getDatabase();
+    const nombre = document.getElementById('nombre').value.trim();
+    const direccion = document.getElementById('direccion').value.trim();
+    const abono = parseFloat(document.getElementById('abono').value);
+    const fecha = document.getElementById('fecha').value;
 
-            const db = getDatabase();
-            const nombre = document.getElementById('nombre').value.trim();
-            const direccion = document.getElementById('direccion').value.trim();
+    // Filtrar para mantener solo los que NO coincidan completamente
+    const nuevosRegistros = db.filter(item => 
+        !(item.nombre.toLowerCase() === nombre.toLowerCase() && 
+          item.direccion.toLowerCase() === direccion.toLowerCase() &&
+          item.abono === abono &&
+          item.fecha === fecha)
+    );
 
-            // Filtrar para mantener solo los que NO coincidan
-            const nuevosRegistros = db.filter(abono => 
-                !(abono.nombre.toLowerCase() === nombre.toLowerCase() && 
-                  abono.direccion.toLowerCase() === direccion.toLowerCase())
-            );
+    if (nuevosRegistros.length === db.length) {
+        showMessage('altaMessage', 'No se encontró el abono especificado para eliminar', 'error');
+        return;
+    }
 
-            if (nuevosRegistros.length === db.length) {
-                showMessage('altaMessage', 'No se encontraron abonos para eliminar', 'error');
-                return;
-            }
+    saveDatabase(nuevosRegistros);
 
-            saveDatabase(nuevosRegistros);
-
-            // Limpiar formulario
-            document.getElementById('altaForm').reset();
-            showMessage('altaMessage', 'Abonos eliminados con éxito', 'success');
-        });
+    // Limpiar formulario
+    document.getElementById('abono').value = '';
+    document.getElementById('fecha').value = '';
+    document.getElementById('codigo').value = '';
+    
+    showMessage('altaMessage', 'Abono eliminado con éxito', 'success');
+});
 
         // Consultar abonos
         document.getElementById('btnConsultar').addEventListener('click', function() {
