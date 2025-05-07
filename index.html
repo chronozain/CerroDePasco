@@ -1136,74 +1136,74 @@ function copiarAlPortapapeles(texto) {
 
 // Modificar el evento btnAlta para mostrar comprobante
     // Registrar un nuevo abono - Versión modificada para Firebase
-    document.getElementById('btnAlta').addEventListener('click', async function() {
-        if (!validarAlta()) return;
+document.getElementById('btnAlta').addEventListener('click', async function() {
+    if (!validarAlta()) return;
 
-        const nombre = document.getElementById('nombre').value.trim();
-        const direccion = document.getElementById('direccion').value.trim();
-        const abono = parseFloat(document.getElementById('abono').value);
-        const fecha = document.getElementById('fecha').value;
-        const comentario = document.getElementById('comentario').value.trim();
+    const nombre = document.getElementById('nombre').value.trim();
+    const direccion = document.getElementById('direccion').value.trim();
+    const abono = parseFloat(document.getElementById('abono').value);
+    const fecha = document.getElementById('fecha').value;
+    const comentario = document.getElementById('comentario').value.trim();
 
-        // Crear nuevo registro de abono
-        const nuevoAbono = {
-            nombre,
-            direccion,
-            abono,
-            fecha,
-            comentario,
-            fechaRegistro: new Date().toISOString()
-        };
+    // Crear nuevo registro de abono
+    const nuevoAbono = {
+        nombre,
+        direccion,
+        abono,
+        fecha,
+        comentario,
+        fechaRegistro: new Date().toISOString()
+    };
 
-        try {
-            // Guardar en Firebase
-            const abonoId = await saveAbono(nuevoAbono);
-            nuevoAbono.id = abonoId; // Agregar el ID generado
-            
-            // Guardar también en localStorage como respaldo
-            const localDb = JSON.parse(localStorage.getItem(DB_KEY)) || [];
-            localDb.push(nuevoAbono);
-            localStorage.setItem(DB_KEY, JSON.stringify(localDb));
-            
-            // Actualizar deuda
-            const deudasDb = await getDeudasDatabase();
-            let deudaEncontrada = false;
-            
-            for (const key in deudasDb) {
-                if (deudasDb[key].direccion.toLowerCase() === direccion.toLowerCase()) {
-                    deudaEncontrada = true;
-                    const updatedDeuda = {
-                        ...deudasDb[key],
-                        deuda: Math.max(0, deudasDb[key].deuda - abono),
-                        ultimoAbono: fecha,
-                        ultimoAbonoMonto: abono
-                    };
-                    
-                    await saveDeuda(updatedDeuda);
-                    
-                    // Actualizar también en localStorage
-                    const localDeudas = JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || [];
-                    const updatedLocalDeudas = localDeudas.map(d => 
-                        d.direccion.toLowerCase() === direccion.toLowerCase() ? updatedDeuda : d
-                    );
-                    localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(updatedLocalDeudas));
-                    
-                    break;
-                }
+    try {
+        // Guardar en Firebase
+        const abonoId = await saveAbono(nuevoAbono);
+        nuevoAbono.id = abonoId; // Agregar el ID generado
+        
+        // Guardar también en localStorage como respaldo
+        const localDb = JSON.parse(localStorage.getItem(DB_KEY)) || [];
+        localDb.push(nuevoAbono);
+        localStorage.setItem(DB_KEY, JSON.stringify(localDb));
+        
+        // Actualizar deuda
+        const deudasDb = await getDeudasDatabase();
+        let deudaEncontrada = false;
+        
+        for (const key in deudasDb) {
+            if (deudasDb[key].direccion.toLowerCase() === direccion.toLowerCase()) {
+                deudaEncontrada = true;
+                const updatedDeuda = {
+                    ...deudasDb[key],
+                    deuda: Math.max(0, deudasDb[key].deuda - abono),
+                    ultimoAbono: fecha,
+                    ultimoAbonoMonto: abono
+                };
+                
+                await saveDeuda(updatedDeuda);
+                
+                // Actualizar también en localStorage
+                const localDeudas = JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || [];
+                const updatedLocalDeudas = localDeudas.map(d => 
+                    d.direccion.toLowerCase() === direccion.toLowerCase() ? updatedDeuda : d
+                );
+                localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(updatedLocalDeudas));
+                
+                break;
             }
-
-            // Limpiar formulario
-            document.getElementById('abono').value = '';
-            document.getElementById('fecha').value = '';
-            document.getElementById('codigo').value = '';
-            
-            mostrarComprobante(nuevoAbono);
-            showMessage('altaMessage', 'Abono registrado con éxito', 'success');
-        } catch (error) {
-            console.error('Error al guardar:', error);
-            showMessage('altaMessage', 'Error al registrar el abono. Usando almacenamiento local.', 'error');
         }
-    });
+
+        // Limpiar formulario
+        document.getElementById('abono').value = '';
+        document.getElementById('fecha').value = '';
+        document.getElementById('codigo').value = '';
+        
+        mostrarComprobante(nuevoAbono);
+        showMessage('altaMessage', 'Abono registrado con éxito', 'success');
+    } catch (error) {
+        console.error('Error al guardar:', error);
+        showMessage('altaMessage', 'Error al registrar el abono. Usando almacenamiento local.', 'error');
+    }
+});
 // Mostrar/ocultar campos según tipo de exportación
 document.getElementById('exportarTipo').addEventListener('change', function() {
     const tipo = this.value;
