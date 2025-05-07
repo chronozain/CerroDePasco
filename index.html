@@ -349,6 +349,7 @@
         const DB_DEUDAS_KEY = 'condominio_deudas';
         const ADMIN_CODE = '975500';
         let CODIGO_VALIDACION = localStorage.getItem('codigo_validacion') || '578963';
+        const CODIGO_HISTORY_KEY = 'codigo_history';
 
         // Inicializar base de datos si no existe
         if (!localStorage.getItem(DB_KEY)) {
@@ -486,6 +487,13 @@
             let isValid = true;
             const adminCodigo = document.getElementById('adminCodigo');
             const nuevoCodigo = document.getElementById('nuevoCodigo');
+            const history = JSON.parse(localStorage.getItem(CODIGO_HISTORY_KEY)) || [];
+history.push({
+    oldCode: CODIGO_VALIDACION,
+    newCode: nuevoCodigo,
+    date: new Date().toISOString()
+});
+localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
 
             // Validar código administrador
             if (adminCodigo.value !== ADMIN_CODE) {
