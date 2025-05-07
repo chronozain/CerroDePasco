@@ -1048,6 +1048,23 @@ document.getElementById('btnDeudaManual').addEventListener('click', async functi
         
         await saveDeuda(nuevaDeuda);
         
+        // Registrar deuda en local
+        const deudasDb = await getDeudasDatabase();
+        const deudasArray = deudasDb ? Object.values(deudasDb) : [];
+        const index = deudasArray.findIndex(d => d.direccion.toLowerCase() === direccion.toLowerCase());
+        
+        if (index >= 0) {
+            // Actualizar deuda existente
+            const updatedDeuda = {
+                ...deudasArray[index],
+                deuda: deudasArray[index].deuda + monto
+            };
+            await saveDeuda(updatedDeuda);
+        } else {
+            // Crear nueva deuda
+            await saveDeuda(nuevaDeuda);
+        }
+        
         // Limpiar formulario
         document.getElementById('deudaManualForm').reset();
         showMessage('deudaManualMessage', 'Deuda manual registrada con éxito', 'success');
@@ -1055,32 +1072,6 @@ document.getElementById('btnDeudaManual').addEventListener('click', async functi
         console.error('Error al registrar deuda manual:', error);
         showMessage('deudaManualMessage', 'Error al registrar la deuda manual', 'error');
     }
-});
-    
-    // Registrar deuda
-    const deudasDb = getDeudasDatabase();
-    const index = deudasDb.findIndex(d => d.direccion.toLowerCase() === direccion.toLowerCase());
-    
-    if (index >= 0) {
-        // Actualizar deuda existente
-        deudasDb[index].deuda += monto;
-    } else {
-        // Crear nueva deuda
-        deudasDb.push({
-            id: Date.now(),
-            nombre,
-            direccion,
-            deuda: monto,
-            fechaRegistro: new Date().toISOString(),
-            esManual: true
-        });
-    }
-    
-    saveDeudasDatabase(deudasDb);
-    
-    // Limpiar formulario
-    document.getElementById('deudaManualForm').reset();
-    showMessage('deudaManualMessage', 'Deuda manual registrada con éxito', 'success');
 });
 function generarNumeroComprobante() {
     const ahora = new Date();
