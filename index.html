@@ -1002,7 +1002,8 @@ document.getElementById('btnExportar').addEventListener('click', function() {
     a.href = url;
     a.download = `exportacion_condominio_${new Date().toISOString().split('T')[0]}.txt`;
     a.click();
-    
+    // Limpiar el campo de código después de exportar
+document.getElementById('exportarCodigo').value = '';
     showMessage('exportacionMessage', 'Datos exportados con éxito', 'success');
 });
         
