@@ -695,32 +695,6 @@ async function updateCodigoValidacion(nuevoCodigo) {
         throw error; // Re-lanzar el error para manejarlo en el llamador
     }
 }
-
-        // Registrar un nuevo abono
-        document.getElementById('btnAlta').addEventListener('click', function() {
-            if (!validarAlta()) return;
-
-            const db = getDatabase();
-            const deudasDb = getDeudasDatabase();
-            const nombre = document.getElementById('nombre').value.trim();
-            const direccion = document.getElementById('direccion').value.trim();
-            const abono = parseFloat(document.getElementById('abono').value);
-            const fecha = document.getElementById('fecha').value;
-
-            // Crear nuevo registro de abono
-            const nuevoAbono = {
-                id: generarNumeroComprobante(),
-                nombre,
-                direccion,
-                abono,
-                fecha,
-                comentario: document.getElementById('comentario').value.trim(), // Nuevo campo
-                fechaRegistro: new Date().toISOString()
-            };
-
-            db.push(nuevoAbono);
-            saveDatabase(db);
-
             // Actualizar deuda: restar el abono a la deuda correspondiente
             let deudaEncontrada = false;
             const nuevasDeudas = deudasDb.map(deuda => {
