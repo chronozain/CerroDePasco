@@ -448,19 +448,16 @@
         });
     }
         // Obtener la base de datos de abonos
-        async function getDatabase() {
-        // Primero intenta con Firebase, si falla usa localStorage como respaldo
-        try {
-            const firebaseData = await getFirebaseAbonos();
-            if (Object.keys(firebaseData).length > 0) {
-                return firebaseData;
-            }
-            throw new Error('No data in Firebase');
-        } catch (error) {
-            console.log('Usando datos de localStorage como respaldo', error);
-            return JSON.parse(localStorage.getItem(DB_KEY)) || {};
-        }
+async function getDatabase() {
+    try {
+        const snapshot = await dbRef.once('value');
+        return snapshot.val() || {};
+    } catch (error) {
+        console.error("Error al obtener datos de Firebase:", error);
+        // Usar localStorage como respaldo
+        return JSON.parse(localStorage.getItem(DB_KEY)) || {};
     }
+}
 
         // Obtener la base de datos de deudas
         async function getDeudasDatabase() {
@@ -687,47 +684,64 @@ localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
             showMessage('altaMessage', 'Abono registrado con éxito', 'success');
         });
 // Eliminar abonos específicos (nombre, dirección, monto y fecha)
-document.getElementById('btnEliminar').addEventListener('click', function() {
+document.getElementById('btnEliminar').addEventListener('click', async function() {
     if (!validarAlta()) return;
 
-    const db = getDatabase();
     const nombre = document.getElementById('nombre').value.trim();
     const direccion = document.getElementById('direccion').value.trim();
     const abono = parseFloat(document.getElementById('abono').value);
     const fecha = document.getElementById('fecha').value;
 
-    // Filtrar para mantener solo los que NO coincidan completamente
-    const nuevosRegistros = db.filter(item => 
-        !(item.nombre.toLowerCase() === nombre.toLowerCase() && 
-          item.direccion.toLowerCase() === direccion.toLowerCase() &&
-          item.abono === abono &&
-          item.fecha === fecha)
-    );
+    try {
+        // Buscar y eliminar de Firebase
+        const snapshot = await dbRef.once('value');
+        const abonos = snapshot.val() || {};
+        
+        let encontrado = false;
+        for (const key in abonos) {
+            const item = abonos[key];
+            if (item.nombre === nombre && 
+                item.direccion === direccion && 
+                item.abono === abono && 
+                item.fecha === fecha) {
+                
+                await dbRef.child(key).remove();
+                encontrado = true;
+                break;
+            }
+        }
 
-    if (nuevosRegistros.length === db.length) {
-        showMessage('altaMessage', 'No se encontró el abono especificado para eliminar', 'error');
-        return;
+        if (!encontrado) {
+            showMessage('altaMessage', 'No se encontró el abono especificado para eliminar', 'error');
+            return;
+        }
+
+        // Limpiar formulario
+        document.getElementById('abono').value = '';
+        document.getElementById('fecha').value = '';
+        document.getElementById('codigo').value = '';
+        
+        showMessage('altaMessage', 'Abono eliminado con éxito', 'success');
+    } catch (error) {
+        console.error('Error al eliminar:', error);
+        showMessage('altaMessage', 'Error al eliminar el abono', 'error');
     }
-
-    saveDatabase(nuevosRegistros);
-
-    // Limpiar formulario
-    document.getElementById('abono').value = '';
-    document.getElementById('fecha').value = '';
-    document.getElementById('codigo').value = '';
-    
-    showMessage('altaMessage', 'Abono eliminado con éxito', 'success');
 });
 
         // Consultar abonos
-        document.getElementById('btnConsultar').addEventListener('click', function() {
-            const db = getDatabase();
-            const deudasDb = getDeudasDatabase();
-            const nombre = document.getElementById('consultaNombre').value.trim().toLowerCase();
-            const direccion = document.getElementById('consultaDireccion').value.trim().toLowerCase();
+document.getElementById('btnConsultar').addEventListener('click', async function() {
+    const db = await getDatabase();
+    const deudasDb = await getDeudasDatabase();
+    
+    // Convertir objetos de Firebase a arrays
+    const abonosArray = db ? Object.values(db) : [];
+    const deudasArray = deudasDb ? Object.values(deudasDb) : [];
+    
+    const nombre = document.getElementById('consultaNombre').value.trim().toLowerCase();
+    const direccion = document.getElementById('consultaDireccion').value.trim().toLowerCase();
 
-            // Filtrar resultados
-            let resultados = db;
+    // Filtrar resultados
+    let resultados = abonosArray;
             
             if (nombre) {
                 resultados = resultados.filter(abono => abono.nombre.toLowerCase().includes(nombre));
@@ -738,27 +752,29 @@ document.getElementById('btnEliminar').addEventListener('click', function() {
             }
 
             // Agrupar por dirección para calcular totales
-            const agrupados = {};
-            resultados.forEach(abono => {
-                const key = `${abono.nombre}|${abono.direccion}`;
-                if (!agrupados[key]) {
-                    agrupados[key] = {
-                        nombre: abono.nombre,
-                        direccion: abono.direccion,
-                        abonos: [],
-                        totalAbonos: 0,
-                        deuda: 0
-                    };
-                    
-                    // Buscar deuda correspondiente a esta dirección
-                    const deudaRegistro = deudasDb.find(d => d.direccion.toLowerCase() === abono.direccion.toLowerCase());
-                    if (deudaRegistro) {
-                        agrupados[key].deuda = deudaRegistro.deuda;
-                    }
-                }
-                agrupados[key].abonos.push(abono);
-                agrupados[key].totalAbonos += abono.abono;
-            });
+const agrupados = {};
+resultados.forEach(abono => {
+    const key = `${abono.nombre}|${abono.direccion}`;
+    if (!agrupados[key]) {
+        agrupados[key] = {
+            nombre: abono.nombre,
+            direccion: abono.direccion,
+            abonos: [],
+            totalAbonos: 0,
+            deuda: 0
+        };
+        
+        // Buscar deuda correspondiente
+        const deudaRegistro = Object.values(deudasDb).find(d => 
+            d.direccion && d.direccion.toLowerCase() === abono.direccion.toLowerCase()
+        );
+        if (deudaRegistro) {
+            agrupados[key].deuda = deudaRegistro.deuda || 0;
+        }
+    }
+    agrupados[key].abonos.push(abono);
+    agrupados[key].totalAbonos += abono.abono;
+});
 
             // Mostrar resultados
             const resultadosDiv = document.getElementById('resultadosConsulta');
