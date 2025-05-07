@@ -363,25 +363,14 @@
     const configRef = database.ref('config');
 // Inicializar y controlar visibilidad de campos de exportación
    // Al cargar la página, obtener el código de validación
-    document.addEventListener('DOMContentLoaded', async function() {
-        try {
-            // Obtener código de Firebase o localStorage
-            CODIGO_VALIDACION = await getCodigoValidacion();
-            
-            // Ocultar campos de exportación
-            document.getElementById('exportarClienteGroup').classList.add('hidden');
-            document.getElementById('exportarMesGroup').classList.add('hidden');
-            
-            // Configurar evento para mostrar/ocultar campos
-            document.getElementById('exportarTipo').addEventListener('change', function() {
-                const tipo = this.value;
-                document.getElementById('exportarClienteGroup').classList.toggle('hidden', tipo !== 'cliente');
-                document.getElementById('exportarMesGroup').classList.toggle('hidden', tipo !== 'mes');
-            });
-        } catch (error) {
-            console.error('Error al cargar configuración:', error);
-            showMessage('altaMessage', 'Error al conectar con la base de datos', 'error');
-        }
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        CODIGO_VALIDACION = await getCodigoValidacion();
+        console.log("Código de validación cargado:", CODIGO_VALIDACION);
+    } catch (error) {
+        console.error('Error al cargar configuración:', error);
+        showMessage('codigoMessage', 'Error al conectar con la base de datos', 'error');
+    }
 });
         // Inicializar base de datos si no existe
         if (!localStorage.getItem(DB_KEY)) {
@@ -589,45 +578,96 @@ async function getDatabase() {
 
         // Validar formulario de cambio de código
         function validarCambioCodigo() {
-            let isValid = true;
-            const adminCodigo = document.getElementById('adminCodigo');
-            const nuevoCodigo = document.getElementById('nuevoCodigo');
-            const history = JSON.parse(localStorage.getItem(CODIGO_HISTORY_KEY)) || [];
-history.push({
-    oldCode: CODIGO_VALIDACION,
-    newCode: nuevoCodigo.value,
-    date: new Date().toISOString()
+    let isValid = true;
+    const adminCodigo = document.getElementById('adminCodigo');
+    const nuevoCodigo = document.getElementById('nuevoCodigo');
+
+    // Validar código administrador (fijo)
+    if (adminCodigo.value !== ADMIN_CODE) {
+        adminCodigo.classList.add('input-error');
+        document.getElementById('adminCodigoError').classList.remove('hidden');
+        isValid = false;
+    } else {
+        adminCodigo.classList.remove('input-error');
+        document.getElementById('adminCodigoError').classList.add('hidden');
+    }
+
+    // Validar nuevo código
+    if (!/^\d{6}$/.test(nuevoCodigo.value)) {
+        nuevoCodigo.classList.add('input-error');
+        document.getElementById('nuevoCodigoError').classList.remove('hidden');
+        document.getElementById('nuevoCodigoError').textContent = 'El código debe tener 6 dígitos numéricos';
+        isValid = false;
+    } else if (nuevoCodigo.value === CODIGO_VALIDACION) {
+        nuevoCodigo.classList.add('input-error');
+        document.getElementById('nuevoCodigoError').classList.remove('hidden');
+        document.getElementById('nuevoCodigoError').textContent = 'El nuevo código debe ser diferente al actual';
+        isValid = false;
+    } else {
+        nuevoCodigo.classList.remove('input-error');
+        document.getElementById('nuevoCodigoError').classList.add('hidden');
+    }
+
+    return isValid;
+}
+
+// Cambiar código de acceso
+document.getElementById('btnNuevoCodigo').addEventListener('click', async function() {
+    if (!validarCambioCodigo()) return;
+
+    const nuevoCodigo = document.getElementById('nuevoCodigo').value;
+    
+    try {
+        // Actualizar código en Firebase
+        await updateCodigoValidacion(nuevoCodigo);
+        
+        // Actualizar variable local
+        CODIGO_VALIDACION = nuevoCodigo;
+        
+        // Limpiar formulario
+        document.getElementById('codigoForm').reset();
+        showMessage('codigoMessage', 'Código de acceso actualizado con éxito', 'success');
+    } catch (error) {
+        console.error('Error al actualizar código:', error);
+        showMessage('codigoMessage', 'Error al actualizar el código', 'error');
+    }
 });
-localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
 
-            // Validar código administrador
-            if (adminCodigo.value !== ADMIN_CODE) {
-                adminCodigo.classList.add('input-error');
-                document.getElementById('adminCodigoError').classList.remove('hidden');
-                isValid = false;
-            } else {
-                adminCodigo.classList.remove('input-error');
-                document.getElementById('adminCodigoError').classList.add('hidden');
-            }
+// Función para obtener el código de validación desde Firebase
+async function getCodigoValidacion() {
+    try {
+        const snapshot = await configRef.child('codigo').once('value');
+        // Si no existe en Firebase, usa el valor de localStorage como respaldo
+        return snapshot.val() || localStorage.getItem('codigo_validacion') || '578963';
+    } catch (error) {
+        console.error("Error al obtener código de Firebase:", error);
+        return localStorage.getItem('codigo_validacion') || '578963';
+    }
+}
 
-            // Validar nuevo código
-            if (!/^\d{6}$/.test(nuevoCodigo.value)) {
-                nuevoCodigo.classList.add('input-error');
-                document.getElementById('nuevoCodigoError').classList.remove('hidden');
-                document.getElementById('nuevoCodigoError').textContent = 'El código debe tener 6 dígitos numéricos';
-                isValid = false;
-            } else if (nuevoCodigo.value === CODIGO_VALIDACION) {
-                nuevoCodigo.classList.add('input-error');
-                document.getElementById('nuevoCodigoError').classList.remove('hidden');
-                document.getElementById('nuevoCodigoError').textContent = 'El nuevo código debe ser diferente al actual';
-                isValid = false;
-            } else {
-                nuevoCodigo.classList.remove('input-error');
-                document.getElementById('nuevoCodigoError').classList.add('hidden');
-            }
-
-            return isValid;
-        }
+// Función para actualizar el código de validación en Firebase y localStorage
+async function updateCodigoValidacion(nuevoCodigo) {
+    try {
+        // Guardar en Firebase
+        await configRef.child('codigo').set(nuevoCodigo);
+        
+        // Guardar en localStorage como respaldo
+        localStorage.setItem('codigo_validacion', nuevoCodigo);
+        
+        // Guardar en el historial
+        const historyRef = configRef.child('codigoHistory');
+        await historyRef.push().set({
+            oldCode: CODIGO_VALIDACION,
+            newCode: nuevoCodigo,
+            date: new Date().toISOString()
+        });
+        
+        console.log("Código actualizado en Firebase y localStorage");
+    } catch (error) {
+        console.error("Error al actualizar código:", error);
+        throw error; // Re-lanzar el error para manejarlo en el llamador
+    }
+}
 
         // Registrar un nuevo abono
         document.getElementById('btnAlta').addEventListener('click', function() {
