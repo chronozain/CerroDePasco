@@ -1218,7 +1218,9 @@ document.getElementById('btnExportar').addEventListener('click', async function(
         const codigo = document.getElementById('exportarCodigo').value;
         
         if (codigo !== CODIGO_VALIDACION) {
-            // Mostrar error de código...
+            document.getElementById('exportarCodigo').classList.add('input-error');
+            document.getElementById('exportarCodigoError').textContent = 'Código de acceso incorrecto';
+            document.getElementById('exportarCodigoError').classList.remove('hidden');
             return;
         }
         
@@ -1227,15 +1229,6 @@ document.getElementById('btnExportar').addEventListener('click', async function(
             getDeudasDatabase()
         ]);
         
-        const abonosArray = db ? Object.values(db) : [];
-        const deudasArray = deudasDb ? Object.values(deudasDb) : [];
-        }
-    
-    try {
-        const db = await getDatabase();
-        const deudasDb = await getDeudasDatabase();
-        
-        // Convertir objetos a arrays
         const abonosArray = db ? Object.values(db) : [];
         const deudasArray = deudasDb ? Object.values(deudasDb) : [];
         
