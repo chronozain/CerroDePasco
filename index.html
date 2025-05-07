@@ -977,11 +977,15 @@ document.getElementById('btnExportar').addEventListener('click', function() {
     
     // Obtener datos según tipo
     const db = getDatabase();
+    const deudasDb = getDeudasDatabase();
+    const deudasPorDireccion = {};
+    deudasDb.forEach(deuda => {
+        deudasPorDireccion[deuda.direccion.toLowerCase()] = deuda.deuda;
+    });
     let datosExportar = [];
     const ahora = new Date();
     const tresMesesAtras = new Date();
     tresMesesAtras.setMonth(ahora.getMonth() - 3);
-    
     switch(tipo) {
         case 'cliente':
             const direccionCliente = document.getElementById('exportarCliente').value.trim().toLowerCase();
@@ -1018,10 +1022,24 @@ document.getElementById('btnExportar').addEventListener('click', function() {
         return fechaAbono >= tresMesesAtras;
         }); 
   // Crear contenido CSV
-    let contenidoCSV = "Fecha,Cliente,Dirección,Monto,Comentario\n";
-    datosExportar.forEach(abono => {
-        contenidoCSV += `"${formatDate(abono.fecha)}","${abono.nombre.replace(/"/g, '""')}","${abono.direccion.replace(/"/g, '""')}",${abono.abono.toFixed(2)},"${(abono.comentario || '').replace(/"/g, '""')}"\n`;
+let contenidoCSV = "Dirección,Propietario,Total Abonos,Deuda Actual,Balance,Fecha Abono,Monto Abono,Comentario\n";
+
+Object.values(agrupados).forEach(grupo => {
+    let primeraFila = true;
+    
+    grupo.abonos.forEach(abono => {
+        contenidoCSV += `"${grupo.direccion}","${grupo.nombre}",`;
+        
+        if (primeraFila) {
+            contenidoCSV += `"${grupo.totalAbonos.toFixed(2)}","${grupo.deuda.toFixed(2)}","${(grupo.totalAbonos - grupo.deuda).toFixed(2)}",`;
+            primeraFila = false;
+        } else {
+            contenidoCSV += `"","","",`;
+        }
+        
+        contenidoCSV += `"${formatDate(abono.fecha)}","${abono.abono.toFixed(2)}","${abono.comentario || ''}"\n`;
     });
+});
     
     // Crear y descargar archivo CSV
     const blobCSV = new Blob(["\uFEFF" + contenidoCSV], { type: 'text/csv;charset=utf-8;' });
@@ -1036,29 +1054,46 @@ document.getElementById('btnExportar').addEventListener('click', function() {
             showMessage('exportacionMessage', 'Seleccione un tipo de exportación', 'error');
             return;
     }
-    
+    // Agrupar por dirección para calcular totales
+    const agrupados = {};
+    datosExportar.forEach(abono => {
+        const clave = abono.direccion.toLowerCase();
+        if (!agrupados[clave]) {
+            agrupados[clave] = {
+                nombre: abono.nombre,
+                direccion: abono.direccion,
+                abonos: [],
+                totalAbonos: 0,
+                deuda: deudasPorDireccion[clave] || 0
+            };
+        }
+        agrupados[clave].abonos.push(abono);
+        agrupados[clave].totalAbonos += abono.abono;
+    });
     if (datosExportar.length === 0) {
         showMessage('exportacionMessage', 'No hay datos para exportar', 'error');
         return;
     }
     
     // Formatear datos para TXT
-    let contenidoTXT = `EXPORTACIÓN DE DATOS - ${new Date().toLocaleDateString()}\n\n`;
-    contenidoTXT += `Tipo: ${tipo === 'cliente' ? 'Por Dirección' : tipo === 'todos' ? 'Todos (3 meses)' : 'Mes Específico'}\n`;
+let contenidoTXT = `EXPORTACIÓN DE DATOS - ${new Date().toLocaleDateString()}\n\n`;
+contenidoTXT += `Tipo: ${tipo === 'cliente' ? 'Por Dirección' : tipo === 'todos' ? 'Todos (3 meses)' : 'Mes Específico'}\n\n`;
 
-    // Calcular monto total
-    const montoTotal = datosExportar.reduce((total, abono) => total + abono.abono, 0);
-    contenidoTXT += `Total registros: ${datosExportar.length}\n`;
-    contenidoTXT += `Monto Total: $${montoTotal.toFixed(2)}\n\n`;
+Object.values(agrupados).forEach(grupo => {
+    contenidoTXT += `Dirección: ${grupo.direccion}\n`;
+    contenidoTXT += `Propietario: ${grupo.nombre}\n`;
+    contenidoTXT += `Total Abonos: $${grupo.totalAbonos.toFixed(2)}\n`;
+    contenidoTXT += `Deuda Actual: $${grupo.deuda.toFixed(2)}\n`;
+    contenidoTXT += `Balance: $${(grupo.totalAbonos - grupo.deuda).toFixed(2)}\n\n`;
     
-    datosExportar.forEach(abono => {
-        contenidoTXT += `Fecha: ${formatDate(abono.fecha)}\n`;
-        contenidoTXT += `Cliente: ${abono.nombre}\n`;
-        contenidoTXT += `Dirección: ${abono.direccion}\n`;
-        contenidoTXT += `Monto: $${abono.abono.toFixed(2)}\n`;
-        contenidoTXT += `Comentario: ${abono.comentario || 'N/A'}\n`;
-        contenidoTXT += `--------------------------------\n`;
+    grupo.abonos.forEach(abono => {
+        contenidoTXT += `- ${formatDate(abono.fecha)}: $${abono.abono.toFixed(2)}`;
+        if (abono.comentario) contenidoTXT += ` (${abono.comentario})`;
+        contenidoTXT += `\n`;
     });
+    
+    contenidoTXT += `\n--------------------------------\n\n`;
+});
     
     // Crear y descargar archivo
     const blob = new Blob([contenidoTXT], { type: 'text/plain' });
