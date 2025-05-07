@@ -171,6 +171,47 @@
                     <i class="fas fa-calculator mr-2"></i> Generar Corte
                 </button>
             </form>
+            <!-- Agregar después del formulario de generación de corte -->
+<div class="mt-8 border-t pt-6">
+    <h3 class="text-lg font-medium text-gray-800 mb-4">Alta Manual de Deuda</h3>
+    
+    <form id="deudaManualForm" class="space-y-4">
+        <div>
+            <label for="deudaManualNombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre del Propietario*</label>
+            <input type="text" id="deudaManualNombre" name="deudaManualNombre" required 
+                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+        </div>
+
+        <div>
+            <label for="deudaManualDireccion" class="block text-sm font-medium text-gray-700 mb-1">Dirección*</label>
+            <input type="text" id="deudaManualDireccion" name="deudaManualDireccion" required 
+                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+            <div id="deudaManualDireccionError" class="error-message hidden">La dirección no existe en registros</div>
+        </div>
+
+        <div>
+            <label for="deudaManualMonto" class="block text-sm font-medium text-gray-700 mb-1">Monto de Deuda*</label>
+            <input type="number" id="deudaManualMonto" name="deudaManualMonto" required min="0" step="0.01"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+        </div>
+
+        <div>
+            <label for="deudaManualCodigo" class="block text-sm font-medium text-gray-700 mb-1">Código de Acceso*</label>
+            <input type="password" id="deudaManualCodigo" name="deudaManualCodigo" required maxlength="6" pattern="\d{6}"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                   placeholder="6 dígitos numéricos">
+            <div id="deudaManualCodigoError" class="error-message hidden">Código incorrecto</div>
+        </div>
+
+        <button type="button" id="btnDeudaManual" 
+                class="w-full bg-amber-600 hover:bg-amber-700 text-white py-2 px-4 rounded-md transition">
+            <i class="fas fa-hand-holding-usd mr-2"></i> Registrar Deuda Manual
+        </button>
+    </form>
+
+    <div id="deudaManualMessage" class="mt-4 p-3 rounded-md hidden"></div>
+</div>
+            
 
             <div id="deudaMessage" class="mt-4 p-3 rounded-md hidden"></div>
         </div>
@@ -433,6 +474,7 @@
             document.getElementById('abono').value = '';
             document.getElementById('fecha').value = '';
             document.getElementById('codigo').value = '';
+            mostrarComprobante(nuevoAbono); // Muestra el comprobante
             
             showMessage('altaMessage', 'Abono registrado con éxito', 'success');
         });
@@ -658,6 +700,185 @@ html += `</tr>`;
                 e.target.value = parseFloat(e.target.value).toFixed(2);
             }
         });
+        // Validar dirección existe
+function validarDireccionExiste(direccion) {
+    const db = getDatabase();
+    return db.some(abono => abono.direccion.toLowerCase() === direccion.toLowerCase());
+}
+
+// Alta manual de deuda
+document.getElementById('btnDeudaManual').addEventListener('click', function() {
+    const nombre = document.getElementById('deudaManualNombre').value.trim();
+    const direccion = document.getElementById('deudaManualDireccion').value.trim();
+    const monto = parseFloat(document.getElementById('deudaManualMonto').value);
+    const codigo = document.getElementById('deudaManualCodigo').value;
+    
+    // Validaciones
+    if (codigo !== CODIGO_VALIDACION) {
+        document.getElementById('deudaManualCodigo').classList.add('input-error');
+        document.getElementById('deudaManualCodigoError').classList.remove('hidden');
+        return;
+    }
+    
+    if (!validarDireccionExiste(direccion)) {
+        document.getElementById('deudaManualDireccion').classList.add('input-error');
+        document.getElementById('deudaManualDireccionError').classList.remove('hidden');
+        return;
+    }
+    
+    // Registrar deuda
+    const deudasDb = getDeudasDatabase();
+    const index = deudasDb.findIndex(d => d.direccion.toLowerCase() === direccion.toLowerCase());
+    
+    if (index >= 0) {
+        // Actualizar deuda existente
+        deudasDb[index].deuda += monto;
+    } else {
+        // Crear nueva deuda
+        deudasDb.push({
+            id: Date.now(),
+            nombre,
+            direccion,
+            deuda: monto,
+            fechaRegistro: new Date().toISOString(),
+            esManual: true
+        });
+    }
+    
+    saveDeudasDatabase(deudasDb);
+    
+    // Limpiar formulario
+    document.getElementById('deudaManualForm').reset();
+    showMessage('deudaManualMessage', 'Deuda manual registrada con éxito', 'success');
+});
+
+        // Mostrar comprobante después de registrar abono
+function mostrarComprobante(abono) {
+    document.getElementById('comprobanteNumero').textContent = abono.id;
+    document.getElementById('comprobanteFecha').textContent = formatDate(abono.fecha);
+    document.getElementById('comprobanteNombre').textContent = abono.nombre;
+    document.getElementById('comprobanteDireccion').textContent = abono.direccion;
+    document.getElementById('comprobanteMonto').textContent = `$${abono.abono.toFixed(2)}`;
+    
+    const modal = document.getElementById('comprobanteModal');
+    modal.classList.remove('hidden');
+    
+    // Configurar botones
+    document.getElementById('cerrarComprobante').addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+    
+    document.getElementById('imprimirComprobante').addEventListener('click', () => {
+        window.print();
+    });
+    
+    document.getElementById('compartirComprobante').addEventListener('click', () => {
+        const texto = `Comprobante de Pago\n\n` +
+                      `N°: ${abono.id}\n` +
+                      `Fecha: ${formatDate(abono.fecha)}\n` +
+                      `Propietario: ${abono.nombre}\n` +
+                      `Dirección: ${abono.direccion}\n` +
+                      `Monto: $${abono.abono.toFixed(2)}\n\n` +
+                      `Gracias por su pago.`;
+        
+        if (navigator.share) {
+            navigator.share({
+                title: 'Comprobante de Pago',
+                text: texto
+            }).catch(err => {
+                console.log('Error al compartir:', err);
+                copiarAlPortapapeles(texto);
+            });
+        } else {
+            copiarAlPortapapeles(texto);
+        }
+    });
+}
+
+function copiarAlPortapapeles(texto) {
+    navigator.clipboard.writeText(texto).then(() => {
+        alert('Comprobante copiado al portapapeles');
+    }).catch(err => {
+        console.error('Error al copiar:', err);
+        prompt('Copie este texto:', texto);
+    });
+}
+
+// Modificar el evento btnAlta para mostrar comprobante
+document.getElementById('btnAlta').addEventListener('click', function() {
+    if (!validarAlta()) return;
+
+    const db = getDatabase();
+    // ... (código existente)
+    
+    // Después de guardar el abono
+    mostrarComprobante(nuevoAbono);
+    
+    // Limpiar formulario (excepto nombre y dirección)
+    document.getElementById('abono').value = '';
+    document.getElementById('fecha').value = '';
+    document.getElementById('codigo').value = '';
+});
+        
+        
     </script>
-<p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Created by Zain</a></p></body>
+<p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Created by Zain</a></p>
+
+<!-- Modal Comprobante -->
+<div id="comprobanteModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+        <div class="p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-indigo-700">Comprobante de Pago</h3>
+                <button id="cerrarComprobante" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="border-b pb-4 mb-4">
+                <div class="flex justify-between mb-2">
+                    <span class="text-gray-600">N° Comprobante:</span>
+                    <span class="font-medium" id="comprobanteNumero"></span>
+                </div>
+                <div class="flex justify-between mb-2">
+                    <span class="text-gray-600">Fecha:</span>
+                    <span class="font-medium" id="comprobanteFecha"></span>
+                </div>
+            </div>
+            
+            <div class="mb-6">
+                <h4 class="text-lg font-semibold text-gray-800 mb-2">Detalles del Pago</h4>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="flex justify-between mb-2">
+                        <span class="text-gray-600">Propietario:</span>
+                        <span class="font-medium" id="comprobanteNombre"></span>
+                    </div>
+                    <div class="flex justify-between mb-2">
+                        <span class="text-gray-600">Dirección:</span>
+                        <span class="font-medium" id="comprobanteDireccion"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Monto:</span>
+                        <span class="text-xl font-bold text-green-600" id="comprobanteMonto"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="border-t pt-4 text-center text-sm text-gray-500">
+                <p>Gracias por su pago. Este comprobante es válido como recibo oficial.</p>
+                <p class="mt-2">Administración de Condominios Cerro de Pasco</p>
+            </div>
+            
+            <div class="mt-6 flex justify-center space-x-4">
+                <button id="imprimirComprobante" class="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center">
+                    <i class="fas fa-print mr-2"></i> Imprimir
+                </button>
+                <button id="compartirComprobante" class="bg-green-600 text-white px-4 py-2 rounded-md flex items-center">
+                    <i class="fas fa-share-alt mr-2"></i> Compartir
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
 </html>
