@@ -102,6 +102,12 @@
                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
                         <div id="fechaError" class="error-message hidden">Seleccione una fecha válida</div>
                     </div>
+                    <div>
+    <label for="comentario" class="block text-sm font-medium text-gray-700 mb-1">Comentarios</label>
+    <input type="text" id="comentario" name="comentario" maxlength="80"
+           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+           placeholder="Máximo 80 caracteres">
+</div>
 
                     <div>
                         <label for="codigo" class="block text-sm font-medium text-gray-700 mb-1">Código de Acceso*</label>
@@ -465,6 +471,7 @@
                 direccion,
                 abono,
                 fecha,
+                comentario: document.getElementById('comentario').value.trim(), // Nuevo campo
                 fechaRegistro: new Date().toISOString()
             };
 
@@ -780,6 +787,7 @@ function mostrarComprobante(abono) {
     document.getElementById('comprobanteFecha').textContent = formatDate(abono.fecha);
     document.getElementById('comprobanteNombre').textContent = abono.nombre;
     document.getElementById('comprobanteDireccion').textContent = abono.direccion;
+    document.getElementById('comprobanteComentario').textContent = abono.comentario || 'Sin comentario';
     document.getElementById('comprobanteMonto').textContent = `$${abono.abono.toFixed(2)}`;
     
     const modal = document.getElementById('comprobanteModal');
@@ -841,7 +849,95 @@ document.getElementById('btnAlta').addEventListener('click', function() {
     document.getElementById('fecha').value = '';
     document.getElementById('codigo').value = '';
 });
-        
+        // Mostrar/ocultar campos según tipo de exportación
+document.getElementById('exportarTipo').addEventListener('change', function() {
+    const tipo = this.value;
+    document.getElementById('exportarClienteGroup').classList.toggle('hidden', tipo !== 'cliente');
+    document.getElementById('exportarMesGroup').classList.toggle('hidden', tipo !== 'mes');
+});
+
+// Función para exportar datos
+document.getElementById('btnExportar').addEventListener('click', function() {
+    const tipo = document.getElementById('exportarTipo').value;
+    const codigo = document.getElementById('exportarCodigo').value;
+    
+    // Validar código
+    if (codigo !== CODIGO_VALIDACION) {
+        document.getElementById('exportarCodigo').classList.add('input-error');
+        document.getElementById('exportarCodigoError').textContent = 'Código de acceso incorrecto';
+        document.getElementById('exportarCodigoError').classList.remove('hidden');
+        return;
+    }
+    
+    // Obtener datos según tipo
+    const db = getDatabase();
+    let datosExportar = [];
+    const ahora = new Date();
+    const tresMesesAtras = new Date();
+    tresMesesAtras.setMonth(ahora.getMonth() - 3);
+    
+    switch(tipo) {
+        case 'cliente':
+            const nombreCliente = document.getElementById('exportarCliente').value.trim().toLowerCase();
+            if (!nombreCliente) {
+                showMessage('exportacionMessage', 'Ingrese un nombre de cliente', 'error');
+                return;
+            }
+            datosExportar = db.filter(abono => 
+                abono.nombre.toLowerCase().includes(nombreCliente)
+            );
+            break;
+            
+        case 'todos':
+            datosExportar = db.filter(abono => {
+                const fechaAbono = new Date(abono.fecha);
+                return fechaAbono >= tresMesesAtras;
+            });
+            break;
+            
+        case 'mes':
+            const mes = parseInt(document.getElementById('exportarMes').value);
+            const añoActual = ahora.getFullYear();
+            datosExportar = db.filter(abono => {
+                const fechaAbono = new Date(abono.fecha);
+                return fechaAbono.getMonth() + 1 === mes && fechaAbono.getFullYear() === añoActual;
+            });
+            break;
+            
+        default:
+            showMessage('exportacionMessage', 'Seleccione un tipo de exportación', 'error');
+            return;
+    }
+    
+    if (datosExportar.length === 0) {
+        showMessage('exportacionMessage', 'No hay datos para exportar', 'error');
+        return;
+    }
+    
+    // Formatear datos para TXT
+    let contenidoTXT = `EXPORTACIÓN DE DATOS - ${new Date().toLocaleDateString()}\n\n`;
+    contenidoTXT += `Tipo: ${tipo === 'cliente' ? 'Por Cliente' : tipo === 'todos' ? 'Todos (3 meses)' : 'Mes Específico'}\n`;
+    contenidoTXT += `Total registros: ${datosExportar.length}\n\n`;
+    
+    datosExportar.forEach(abono => {
+        contenidoTXT += `Fecha: ${formatDate(abono.fecha)}\n`;
+        contenidoTXT += `Cliente: ${abono.nombre}\n`;
+        contenidoTXT += `Dirección: ${abono.direccion}\n`;
+        contenidoTXT += `Monto: $${abono.abono.toFixed(2)}\n`;
+        contenidoTXT += `Comentario: ${abono.comentario || 'N/A'}\n`;
+        contenidoTXT += `--------------------------------\n`;
+    });
+    
+    // Crear y descargar archivo
+    const blob = new Blob([contenidoTXT], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `exportacion_condominio_${new Date().toISOString().split('T')[0]}.txt`;
+    a.click();
+    
+    showMessage('exportacionMessage', 'Datos exportados con éxito', 'success');
+});
         
     </script>
 <p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Created by Zain</a></p>
@@ -879,6 +975,10 @@ document.getElementById('btnAlta').addEventListener('click', function() {
                         <span class="text-gray-600">Dirección:</span>
                         <span class="font-medium" id="comprobanteDireccion"></span>
                     </div>
+                    <div class="flex justify-between mb-2">
+    <span class="text-gray-600">Comentario:</span>
+    <span class="font-medium" id="comprobanteComentario"></span>
+</div>
                     <div class="flex justify-between">
                         <span class="text-gray-600">Monto:</span>
                         <span class="text-xl font-bold text-green-600" id="comprobanteMonto"></span>
@@ -901,6 +1001,68 @@ document.getElementById('btnAlta').addEventListener('click', function() {
             </div>
         </div>
     </div>
+    <!-- Sección: Exportación de Datos -->
+<div class="mt-8 bg-white rounded-lg shadow-lg p-6 fade-in">
+    <div class="flex items-center mb-6">
+        <div class="bg-green-100 p-3 rounded-full mr-4">
+            <i class="fas fa-file-export text-green-600 text-xl"></i>
+        </div>
+        <h2 class="text-2xl font-semibold text-gray-800">Exportación de Datos</h2>
+    </div>
+
+    <form id="exportacionForm" class="space-y-4">
+        <div>
+            <label for="exportarTipo" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Exportación*</label>
+            <select id="exportarTipo" name="exportarTipo" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                <option value="">Seleccione una opción</option>
+                <option value="cliente">Por Cliente</option>
+                <option value="todos">Todos los Clientes (últimos 3 meses)</option>
+                <option value="mes">Mes Específico</option>
+            </select>
+        </div>
+
+        <div id="exportarClienteGroup" class="hidden">
+            <label for="exportarCliente" class="block text-sm font-medium text-gray-700 mb-1">Nombre del Cliente*</label>
+            <input type="text" id="exportarCliente" name="exportarCliente"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+        </div>
+
+        <div id="exportarMesGroup" class="hidden">
+            <label for="exportarMes" class="block text-sm font-medium text-gray-700 mb-1">Mes*</label>
+            <select id="exportarMes" name="exportarMes"
+                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                <option value="1">Enero</option>
+                <option value="2">Febrero</option>
+                <option value="3">Marzo</option>
+                <option value="4">Abril</option>
+                <option value="5">Mayo</option>
+                <option value="6">Junio</option>
+                <option value="7">Julio</option>
+                <option value="8">Agosto</option>
+                <option value="9">Septiembre</option>
+                <option value="10">Octubre</option>
+                <option value="11">Noviembre</option>
+                <option value="12">Diciembre</option>
+            </select>
+        </div>
+
+        <div>
+            <label for="exportarCodigo" class="block text-sm font-medium text-gray-700 mb-1">Código de Acceso*</label>
+            <input type="password" id="exportarCodigo" name="exportarCodigo" required maxlength="6" pattern="\d{6}"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                   placeholder="6 dígitos numéricos">
+            <div id="exportarCodigoError" class="error-message hidden">El código debe tener 6 dígitos numéricos</div>
+        </div>
+
+        <button type="button" id="btnExportar" 
+                class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
+            <i class="fas fa-file-export mr-2"></i> Exportar Datos
+        </button>
+    </form>
+
+    <div id="exportacionMessage" class="mt-4 p-3 rounded-md hidden"></div>
+</div>
 </div>
 </body>
 </html>
