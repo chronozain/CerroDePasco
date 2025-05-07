@@ -528,7 +528,7 @@
 
             // Crear nuevo registro de abono
             const nuevoAbono = {
-                id: Date.now(),
+                id: generarNumeroComprobante(),
                 nombre,
                 direccion,
                 abono,
@@ -842,10 +842,20 @@ document.getElementById('btnDeudaManual').addEventListener('click', function() {
     document.getElementById('deudaManualForm').reset();
     showMessage('deudaManualMessage', 'Deuda manual registrada con éxito', 'success');
 });
-
+function generarNumeroComprobante() {
+    const ahora = new Date();
+    const dia = String(ahora.getDate()).padStart(2, '0');
+    const mes = String(ahora.getMonth() + 1).padStart(2, '0');
+    const año = ahora.getFullYear();
+    const horas = String(ahora.getHours()).padStart(2, '0');
+    const minutos = String(ahora.getMinutes()).padStart(2, '0');
+    const segundos = String(ahora.getSeconds()).padStart(2, '0');
+    
+    return `${dia}${mes}${año}${horas}${minutos}${segundos}`;
+}
         // Mostrar comprobante después de registrar abono
 function mostrarComprobante(abono) {
-    document.getElementById('comprobanteNumero').textContent = abono.id;
+    document.getElementById('comprobanteNumero').textContent = generarNumeroComprobante();
     document.getElementById('comprobanteFecha').textContent = formatDate(abono.fecha);
     document.getElementById('comprobanteNombre').textContent = abono.nombre;
     document.getElementById('comprobanteDireccion').textContent = abono.direccion;
