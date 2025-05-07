@@ -490,7 +490,7 @@
             const history = JSON.parse(localStorage.getItem(CODIGO_HISTORY_KEY)) || [];
 history.push({
     oldCode: CODIGO_VALIDACION,
-    newCode: nuevoCodigo,
+    newCode: nuevoCodigo.value,
     date: new Date().toISOString()
 });
 localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
