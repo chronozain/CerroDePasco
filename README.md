@@ -1,12 +1,4 @@
 ---
-title: ekiwa
-emoji: 🐳
-colorFrom: red
-colorTo: green
-sdk: static
-pinned: false
-tags:
-  - deepsite
----
+Creado por Zain Equihua
 
-Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
+---
