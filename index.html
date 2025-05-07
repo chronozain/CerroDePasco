@@ -834,53 +834,55 @@ html += `</tr>`;
         });
 
         // Generar corte de deudas
-        document.getElementById('btnGenerarCorte').addEventListener('click', function() {
-            if (!validarGenerarCorte()) return;
+document.getElementById('btnGenerarCorte').addEventListener('click', async function() {
+    if (!validarGenerarCorte()) return;
 
-            const db = getDatabase();
-            const deudasDb = getDeudasDatabase();
-            const fechaCorte = document.getElementById('deudaFecha').value;
+    try {
+        const db = await getDatabase();
+        const abonosArray = db ? Object.values(db) : [];
+        const fechaCorte = document.getElementById('deudaFecha').value;
 
-            // Obtener todas las direcciones únicas de abonos
-            const direccionesUnicas = [...new Set(db.map(abono => abono.direccion.toLowerCase()))];
+        // Obtener todas las direcciones únicas de abonos
+        const direccionesUnicas = [...new Set(abonosArray.map(abono => abono.direccion.toLowerCase()))];
 
-            // Actualizar deudas para cada dirección
-            const nuevasDeudas = [...deudasDb];
+        // Actualizar deudas para cada dirección
+        for (const direccion of direccionesUnicas) {
+            // Buscar si ya existe un registro de deuda para esta dirección
+            const snapshot = await deudasRef.orderByChild('direccion').equalTo(direccion).once('value');
             
-            direccionesUnicas.forEach(direccion => {
-                // Buscar si ya existe un registro de deuda para esta dirección
-                const index = nuevasDeudas.findIndex(d => d.direccion.toLowerCase() === direccion);
-                const abonoEjemplo = db.find(a => a.direccion.toLowerCase() === direccion);
+            const abonoEjemplo = abonosArray.find(a => a.direccion.toLowerCase() === direccion);
+            
+            if (snapshot.exists()) {
+                // Actualizar deuda existente (+180)
+                const key = Object.keys(snapshot.val())[0];
+                const deudaActual = snapshot.val()[key];
                 
-                if (index >= 0) {
-                    // Actualizar deuda existente (+180)
-                    nuevasDeudas[index] = {
-                        ...nuevasDeudas[index],
-                        deuda: nuevasDeudas[index].deuda + 180,
-                        ultimoCorte: fechaCorte
-                    };
-                } else {
-                    // Crear nuevo registro de deuda
-                    nuevasDeudas.push({
-                        id: Date.now(),
-                        nombre: abonoEjemplo.nombre,
-                        direccion: abonoEjemplo.direccion,
-                        deuda: 180,
-                        ultimoCorte: fechaCorte,
-                        fechaRegistro: new Date().toISOString()
-                    });
-                }
-            });
+                await deudasRef.child(key).update({
+                    deuda: deudaActual.deuda + 180,
+                    ultimoCorte: fechaCorte
+                });
+            } else {
+                // Crear nuevo registro de deuda
+                await deudasRef.push({
+                    nombre: abonoEjemplo.nombre,
+                    direccion: abonoEjemplo.direccion,
+                    deuda: 180,
+                    ultimoCorte: fechaCorte,
+                    fechaRegistro: new Date().toISOString()
+                });
+            }
+        }
 
-            // Guardar cambios
-            saveDeudasDatabase(nuevasDeudas);
-
-            // Limpiar formulario
-            document.getElementById('deudaCodigo').value = '';
-            document.getElementById('deudaFecha').value = '';
-            
-            showMessage('deudaMessage', `Corte generado con éxito. Se agregó $180 a ${direccionesUnicas.length} direcciones.`, 'success');
-        });
+        // Limpiar formulario
+        document.getElementById('deudaCodigo').value = '';
+        document.getElementById('deudaFecha').value = '';
+        
+        showMessage('deudaMessage', `Corte generado con éxito. Se agregó $180 a ${direccionesUnicas.length} direcciones.`, 'success');
+    } catch (error) {
+        console.error('Error al generar corte:', error);
+        showMessage('deudaMessage', 'Error al generar el corte de deudas', 'error');
+    }
+});
 
         // Cambiar código de acceso
         document.getElementById('btnNuevoCodigo').addEventListener('click', function() {
@@ -941,16 +943,22 @@ html += `</tr>`;
             }
         });
         // Validar dirección existe
-function validarDireccionExiste(nombre, direccion) {
-    const db = getDatabase();
-    return db.some(abono => 
-        abono.direccion.toLowerCase() === direccion.toLowerCase() &&
-        abono.nombre.toLowerCase() === nombre.toLowerCase()
-    );
+async function validarDireccionExiste(nombre, direccion) {
+    try {
+        const db = await getDatabase();
+        const abonosArray = db ? Object.values(db) : [];
+        return abonosArray.some(abono => 
+            abono.direccion.toLowerCase() === direccion.toLowerCase() &&
+            abono.nombre.toLowerCase() === nombre.toLowerCase()
+        );
+    } catch (error) {
+        console.error("Error al validar dirección:", error);
+        return false;
+    }
 }
 
 // Alta manual de deuda
-document.getElementById('btnDeudaManual').addEventListener('click', function() {
+document.getElementById('btnDeudaManual').addEventListener('click', async function() {
     const nombre = document.getElementById('deudaManualNombre').value.trim();
     const direccion = document.getElementById('deudaManualDireccion').value.trim();
     const monto = parseFloat(document.getElementById('deudaManualMonto').value);
@@ -963,12 +971,33 @@ document.getElementById('btnDeudaManual').addEventListener('click', function() {
         return;
     }
     
-if (!validarDireccionExiste(nombre, direccion)) {
-    document.getElementById('deudaManualDireccion').classList.add('input-error');
-    document.getElementById('deudaManualDireccionError').textContent = 'La dirección no coincide con ningún propietario registrado';
-    document.getElementById('deudaManualDireccionError').classList.remove('hidden');
-    return;
-}
+    if (!await validarDireccionExiste(nombre, direccion)) {
+        document.getElementById('deudaManualDireccion').classList.add('input-error');
+        document.getElementById('deudaManualDireccionError').textContent = 'La dirección no coincide con ningún propietario registrado';
+        document.getElementById('deudaManualDireccionError').classList.remove('hidden');
+        return;
+    }
+    
+    try {
+        // Registrar deuda en Firebase
+        const nuevaDeuda = {
+            nombre,
+            direccion,
+            deuda: monto,
+            fechaRegistro: new Date().toISOString(),
+            esManual: true
+        };
+        
+        await saveDeuda(nuevaDeuda);
+        
+        // Limpiar formulario
+        document.getElementById('deudaManualForm').reset();
+        showMessage('deudaManualMessage', 'Deuda manual registrada con éxito', 'success');
+    } catch (error) {
+        console.error('Error al registrar deuda manual:', error);
+        showMessage('deudaManualMessage', 'Error al registrar la deuda manual', 'error');
+    }
+});
     
     // Registrar deuda
     const deudasDb = getDeudasDatabase();
@@ -1137,7 +1166,7 @@ document.getElementById('exportarTipo').addEventListener('change', function() {
 });
 
 // Función para exportar datos
-document.getElementById('btnExportar').addEventListener('click', function() {
+document.getElementById('btnExportar').addEventListener('click', async function() {
     const tipo = document.getElementById('exportarTipo').value;
     const codigo = document.getElementById('exportarCodigo').value;
     
@@ -1148,73 +1177,85 @@ document.getElementById('btnExportar').addEventListener('click', function() {
         return;
     }
     
-    const db = getDatabase();
-    const deudasDb = getDeudasDatabase();
-    const ahora = new Date();
-    const deudasPorDireccion = {};
-    deudasDb.forEach(deuda => deudasPorDireccion[deuda.direccion.toLowerCase()] = deuda.deuda);
-    
-    let datosFiltrados = [];
-    const tresMesesAtras = new Date(ahora.setMonth(ahora.getMonth() - 3));
-    const unAnioAtras = new Date(ahora.setFullYear(ahora.getFullYear() - 1));
-    
-    switch(tipo) {
-        case 'cliente':
-            const direccion = document.getElementById('exportarCliente').value.trim().toLowerCase();
-            if (!direccion) {
-                showMessage('exportacionMessage', 'Ingrese una dirección', 'error');
+    try {
+        const db = await getDatabase();
+        const deudasDb = await getDeudasDatabase();
+        
+        // Convertir objetos a arrays
+        const abonosArray = db ? Object.values(db) : [];
+        const deudasArray = deudasDb ? Object.values(deudasDb) : [];
+        
+        const ahora = new Date();
+        const deudasPorDireccion = {};
+        deudasArray.forEach(deuda => {
+            deudasPorDireccion[deuda.direccion.toLowerCase()] = deuda.deuda;
+        });
+        
+        let datosFiltrados = [];
+        const tresMesesAtras = new Date(ahora.setMonth(ahora.getMonth() - 3));
+        const unAnioAtras = new Date(ahora.setFullYear(ahora.getFullYear() - 1));
+        
+        switch(tipo) {
+            case 'cliente':
+                const direccion = document.getElementById('exportarCliente').value.trim().toLowerCase();
+                if (!direccion) {
+                    showMessage('exportacionMessage', 'Ingrese una dirección', 'error');
+                    return;
+                }
+                datosFiltrados = abonosArray.filter(abono => 
+                    abono.direccion.toLowerCase().includes(direccion) && 
+                    new Date(abono.fecha) >= tresMesesAtras
+                );
+                break;
+                
+            case 'todos':
+                datosFiltrados = abonosArray.filter(abono => new Date(abono.fecha) >= tresMesesAtras);
+                break;
+                
+            case 'mes':
+                const mes = parseInt(document.getElementById('exportarMes').value);
+                const añoActual = new Date().getFullYear();
+                datosFiltrados = abonosArray.filter(abono => 
+                    new Date(abono.fecha).getMonth() + 1 === mes && 
+                    new Date(abono.fecha).getFullYear() === añoActual
+                );
+                break;
+                
+            case 'completo':
+                datosFiltrados = abonosArray.filter(abono => new Date(abono.fecha) >= unAnioAtras);
+                break;
+                
+            default:
+                showMessage('exportacionMessage', 'Seleccione un tipo de exportación', 'error');
                 return;
-            }
-            datosFiltrados = db.filter(abono => 
-                abono.direccion.toLowerCase().includes(direccion) && 
-                new Date(abono.fecha) >= tresMesesAtras
-            );
-            break;
-            
-        case 'todos':
-            datosFiltrados = db.filter(abono => new Date(abono.fecha) >= tresMesesAtras);
-            break;
-            
-        case 'mes':
-            const mes = parseInt(document.getElementById('exportarMes').value);
-            const añoActual = new Date().getFullYear();
-            datosFiltrados = db.filter(abono => 
-                new Date(abono.fecha).getMonth() + 1 === mes && 
-                new Date(abono.fecha).getFullYear() === añoActual
-            );
-            break;
-            
-        case 'completo':
-            datosFiltrados = db.filter(abono => new Date(abono.fecha) >= unAnioAtras);
-            break;
-            
-        default:
-            showMessage('exportacionMessage', 'Seleccione un tipo de exportación', 'error');
+        }
+        
+        if (datosFiltrados.length === 0) {
+            showMessage('exportacionMessage', 'No hay datos para exportar', 'error');
             return;
+        }
+        
+        datosFiltrados.sort((a, b) => a.direccion.localeCompare(b.direccion) || new Date(a.fecha) - new Date(b.fecha));
+        
+        let csvContent = "Nombre,Dirección,Fecha Abono,Monto Abono,Deuda Actual,Comentario\n";
+        datosFiltrados.forEach(abono => {
+            csvContent += `"${abono.nombre}","${abono.direccion}","${formatDate(abono.fecha)}",`;
+            csvContent += `"${abono.abono.toFixed(2)}","${(deudasPorDireccion[abono.direccion.toLowerCase()] || 0).toFixed(2)}","${abono.comentario || ''}"\n`;
+        });
+        
+        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `abonos_${tipo}_${new Date().toISOString().split('T')[0]}.csv`;
+        a.click();
+        
+        document.getElementById('exportarCodigo').value = '';
+        showMessage('exportacionMessage', 'CSV exportado correctamente', 'success');
+    } catch (error) {
+        console.error('Error al exportar:', error);
+        showMessage('exportacionMessage', 'Error al exportar los datos', 'error');
     }
-    
-    if (datosFiltrados.length === 0) {
-        showMessage('exportacionMessage', 'No hay datos para exportar', 'error');
-        return;
-    }
-    
-    datosFiltrados.sort((a, b) => a.direccion.localeCompare(b.direccion) || new Date(a.fecha) - new Date(b.fecha));
-    
-    let csvContent = "Nombre,Dirección,Fecha Abono,Monto Abono,Deuda Actual,Comentario\n";
-    datosFiltrados.forEach(abono => {
-        csvContent += `"${abono.nombre}","${abono.direccion}","${formatDate(abono.fecha)}",`;
-        csvContent += `"${abono.abono.toFixed(2)}","${(deudasPorDireccion[abono.direccion.toLowerCase()] || 0).toFixed(2)}","${abono.comentario || ''}"\n`;
-    });
-    
-    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `abonos_${tipo}_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    
-    document.getElementById('exportarCodigo').value = '';
-    showMessage('exportacionMessage', 'CSV exportado correctamente', 'success');
 });
         
     </script>
