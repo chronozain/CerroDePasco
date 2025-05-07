@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administración de Cerro de Pasco </title>
     <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .fade-in {
@@ -351,24 +353,35 @@
         const ADMIN_CODE = '975500';
         let CODIGO_VALIDACION = localStorage.getItem('codigo_validacion') || '578963';
         const CODIGO_HISTORY_KEY = 'codigo_history';
+        const firebaseConfig = { databaseURL: "https://cerrodepasco-a935c-default-rtdb.asia-southeast1.firebasedatabase.app/"    };
+    // Inicializa Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const database = firebase.database(app);
+    // Referencias a las bases de datos
+    const dbRef = database.ref('abonos');
+    const deudasRef = database.ref('deudas');
+    const configRef = database.ref('config');
 // Inicializar y controlar visibilidad de campos de exportación
-document.addEventListener('DOMContentLoaded', function() {
-    // Ocultar campos al cargar
-    document.getElementById('exportarClienteGroup').classList.add('hidden');
-    document.getElementById('exportarMesGroup').classList.add('hidden');
-    
-    // Mostrar/ocultar según selección
-    document.getElementById('exportarTipo').addEventListener('change', function() {
-        const tipo = this.value;
-        const mostrarCliente = tipo === 'cliente';
-        const mostrarMes = tipo === 'mes';
-        
-        document.getElementById('exportarClienteGroup').classList.toggle('hidden', !mostrarCliente);
-        document.getElementById('exportarMesGroup').classList.toggle('hidden', !mostrarMes);
-        
-        // Resetear campos no visibles
-        if (!mostrarCliente) document.getElementById('exportarCliente').value = '';
-        if (!mostrarMes) document.getElementById('exportarMes').value = '';
+   // Al cargar la página, obtener el código de validación
+    document.addEventListener('DOMContentLoaded', async function() {
+        try {
+            // Obtener código de Firebase o localStorage
+            CODIGO_VALIDACION = await getCodigoValidacion();
+            
+            // Ocultar campos de exportación
+            document.getElementById('exportarClienteGroup').classList.add('hidden');
+            document.getElementById('exportarMesGroup').classList.add('hidden');
+            
+            // Configurar evento para mostrar/ocultar campos
+            document.getElementById('exportarTipo').addEventListener('change', function() {
+                const tipo = this.value;
+                document.getElementById('exportarClienteGroup').classList.toggle('hidden', tipo !== 'cliente');
+                document.getElementById('exportarMesGroup').classList.toggle('hidden', tipo !== 'mes');
+            });
+        } catch (error) {
+            console.error('Error al cargar configuración:', error);
+            showMessage('altaMessage', 'Error al conectar con la base de datos', 'error');
+        }
     });
 });
         // Inicializar base de datos si no existe
@@ -378,16 +391,92 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!localStorage.getItem(DB_DEUDAS_KEY)) {
             localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify([]));
         }
+// Obtener todos los abonos NUEVAS FUNCIONES PARA FIREBASE
+    async function getFirebaseAbonos() {
+        const snapshot = await dbRef.once('value');
+        return snapshot.val() || {};
+    }
 
-        // Obtener la base de datos de abonos
-        function getDatabase() {
-            return JSON.parse(localStorage.getItem(DB_KEY));
+    // Guardar un nuevo abono
+    async function saveAbono(nuevoAbono) {
+        const newAbonoRef = dbRef.push();
+        await newAbonoRef.set(nuevoAbono);
+        return newAbonoRef.key; // Retorna el ID generado
+    }
+
+    // Obtener todas las deudas
+    async function getFirebaseDeudas() {
+        const snapshot = await deudasRef.once('value');
+        return snapshot.val() || {};
+    }
+
+    // Actualizar o crear una deuda
+    async function saveDeuda(deuda) {
+        // Buscar si ya existe una deuda para esta dirección
+        const snapshot = await deudasRef.orderByChild('direccion').equalTo(deuda.direccion).once('value');
+        
+        if (snapshot.exists()) {
+            // Actualizar deuda existente
+            const key = Object.keys(snapshot.val())[0];
+            await deudasRef.child(key).update(deuda);
+        } else {
+            // Crear nueva deuda
+            const newDeudaRef = deudasRef.push();
+            await newDeudaRef.set(deuda);
         }
+    }
+
+    // Obtener el código de validación
+    async function getCodigoValidacion() {
+        const snapshot = await configRef.child('codigo').once('value');
+        // Si no existe en Firebase, usa el valor de localStorage como respaldo
+        return snapshot.val() || localStorage.getItem('codigo_validacion') || '578963';
+    }
+
+    // Actualizar el código de validación
+    async function updateCodigoValidacion(nuevoCodigo) {
+        // Actualizar en Firebase
+        await configRef.child('codigo').set(nuevoCodigo);
+        // También guardar en localStorage como respaldo
+        localStorage.setItem('codigo_validacion', nuevoCodigo);
+        
+        // Guardar en el historial
+        const historyRef = configRef.child('codigoHistory');
+        await historyRef.push().set({
+            oldCode: CODIGO_VALIDACION,
+            newCode: nuevoCodigo,
+            date: new Date().toISOString()
+        });
+    }
+        // Obtener la base de datos de abonos
+        async function getDatabase() {
+        // Primero intenta con Firebase, si falla usa localStorage como respaldo
+        try {
+            const firebaseData = await getFirebaseAbonos();
+            if (Object.keys(firebaseData).length > 0) {
+                return firebaseData;
+            }
+            throw new Error('No data in Firebase');
+        } catch (error) {
+            console.log('Usando datos de localStorage como respaldo', error);
+            return JSON.parse(localStorage.getItem(DB_KEY)) || {};
+        }
+    }
 
         // Obtener la base de datos de deudas
-        function getDeudasDatabase() {
-            return JSON.parse(localStorage.getItem(DB_DEUDAS_KEY));
+        async function getDeudasDatabase() {
+        // Primero intenta con Firebase, si falla usa localStorage como respaldo
+        try {
+            const firebaseData = await getFirebaseDeudas();
+            if (Object.keys(firebaseData).length > 0) {
+                return firebaseData;
+            }
+            throw new Error('No data in Firebase');
+        } catch (error) {
+            console.log('Usando datos de localStorage como respaldo', error);
+            return JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || {};
         }
+    }
 
         // Guardar la base de datos de abonos
         function saveDatabase(db) {
@@ -956,24 +1045,75 @@ function copiarAlPortapapeles(texto) {
 }
 
 // Modificar el evento btnAlta para mostrar comprobante
-document.getElementById('btnAlta').addEventListener('click', function() {
-    if (!validarAlta()) return;
+    // Registrar un nuevo abono - Versión modificada para Firebase
+    document.getElementById('btnAlta').addEventListener('click', async function() {
+        if (!validarAlta()) return;
 
-    const db = getDatabase();
-    const deudasDb = getDeudasDatabase();
-    const nombre = document.getElementById('nombre').value.trim();
-    const direccion = document.getElementById('direccion').value.trim();
-    const abono = parseFloat(document.getElementById('abono').value);
-    const fecha = document.getElementById('fecha').value;
-    
-    // Después de guardar el abono
-    mostrarComprobante(nuevoAbono);
-    
-    // Limpiar formulario (excepto nombre y dirección)
-    document.getElementById('abono').value = '';
-    document.getElementById('fecha').value = '';
-    document.getElementById('codigo').value = '';
-});
+        const nombre = document.getElementById('nombre').value.trim();
+        const direccion = document.getElementById('direccion').value.trim();
+        const abono = parseFloat(document.getElementById('abono').value);
+        const fecha = document.getElementById('fecha').value;
+        const comentario = document.getElementById('comentario').value.trim();
+
+        // Crear nuevo registro de abono
+        const nuevoAbono = {
+            nombre,
+            direccion,
+            abono,
+            fecha,
+            comentario,
+            fechaRegistro: new Date().toISOString()
+        };
+
+        try {
+            // Guardar en Firebase
+            const abonoId = await saveAbono(nuevoAbono);
+            nuevoAbono.id = abonoId; // Agregar el ID generado
+            
+            // Guardar también en localStorage como respaldo
+            const localDb = JSON.parse(localStorage.getItem(DB_KEY)) || [];
+            localDb.push(nuevoAbono);
+            localStorage.setItem(DB_KEY, JSON.stringify(localDb));
+            
+            // Actualizar deuda
+            const deudasDb = await getDeudasDatabase();
+            let deudaEncontrada = false;
+            
+            for (const key in deudasDb) {
+                if (deudasDb[key].direccion.toLowerCase() === direccion.toLowerCase()) {
+                    deudaEncontrada = true;
+                    const updatedDeuda = {
+                        ...deudasDb[key],
+                        deuda: Math.max(0, deudasDb[key].deuda - abono),
+                        ultimoAbono: fecha,
+                        ultimoAbonoMonto: abono
+                    };
+                    
+                    await saveDeuda(updatedDeuda);
+                    
+                    // Actualizar también en localStorage
+                    const localDeudas = JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || [];
+                    const updatedLocalDeudas = localDeudas.map(d => 
+                        d.direccion.toLowerCase() === direccion.toLowerCase() ? updatedDeuda : d
+                    );
+                    localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(updatedLocalDeudas));
+                    
+                    break;
+                }
+            }
+
+            // Limpiar formulario
+            document.getElementById('abono').value = '';
+            document.getElementById('fecha').value = '';
+            document.getElementById('codigo').value = '';
+            
+            mostrarComprobante(nuevoAbono);
+            showMessage('altaMessage', 'Abono registrado con éxito', 'success');
+        } catch (error) {
+            console.error('Error al guardar:', error);
+            showMessage('altaMessage', 'Error al registrar el abono. Usando almacenamiento local.', 'error');
+        }
+    });
 // Mostrar/ocultar campos según tipo de exportación
 document.getElementById('exportarTipo').addEventListener('change', function() {
     const tipo = this.value;
