@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Administración de Condominio</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .input-error {
+            border-color: #f87171 !important;
+        }
+        .error-message {
+            color: #f87171;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+        .total-row {
+            background-color: #f0f9ff;
+            font-weight: bold;
+        }
+        .deuda-row {
+            background-color: #fff7ed;
+        }
+        .deuda-alta {
+            color: #dc2626;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="mb-10 text-center">
+            <h1 class="text-4xl font-bold text-indigo-800 mb-2">Administración de Condominio</h1>
+            <p class="text-gray-600">Sistema de gestión de propietarios, pagos y deudas</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Sección de Alta/Eliminación -->
+            <div class="bg-white rounded-lg shadow-lg p-6 fade-in">
+                <div class="flex items-center mb-6">
+                    <div class="bg-indigo-100 p-3 rounded-full mr-4">
+                        <i class="fas fa-user-plus text-indigo-600 text-xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-semibold text-gray-800">Registro de Abonos</h2>
+                </div>
+
+                <form id="altaForm" class="space-y-4">
+                    <div>
+                        <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre del Propietario*</label>
+                        <input type="text" id="nombre" name="nombre" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        <div id="nombreError" class="error-message hidden">Ingrese un nombre válido</div>
+                    </div>
+
+                    <div>
+                        <label for="direccion" class="block text-sm font-medium text-gray-700 mb-1">Dirección*</label>
+                        <input type="text" id="direccion" name="direccion" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        <div id="direccionError" class="error-message hidden">Ingrese una dirección válida</div>
+                    </div>
+
+                    <div>
+                        <label for="abono" class="block text-sm font-medium text-gray-700 mb-1">Abono*</label>
+                        <input type="number" id="abono" name="abono" required min="0" step="0.01"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        <div id="abonoError" class="error-message hidden">Ingrese un monto válido</div>
+                    </div>
+
+                    <div>
+                        <label for="fecha" class="block text-sm font-medium text-gray-700 mb-1">Fecha*</label>
+                        <input type="date" id="fecha" name="fecha" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        <div id="fechaError" class="error-message hidden">Seleccione una fecha válida</div>
+                    </div>
+
+                    <div>
+                        <label for="codigo" class="block text-sm font-medium text-gray-700 mb-1">Código de Acceso*</label>
+                        <input type="password" id="codigo" name="codigo" required maxlength="6" pattern="\d{6}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                               placeholder="6 dígitos numéricos">
+                        <div id="codigoError" class="error-message hidden">El código debe tener 6 dígitos numéricos</div>
+                    </div>
+
+                    <div class="flex space-x-4 pt-2">
+                        <button type="button" id="btnAlta" 
+                                class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
+                            <i class="fas fa-save mr-2"></i> Registrar Abono
+                        </button>
+                        <button type="button" id="btnEliminar" 
+                                class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
+                            <i class="fas fa-trash-alt mr-2"></i> Eliminar
+                        </button>
+                    </div>
+                </form>
+
+                <div id="altaMessage" class="mt-4 p-3 rounded-md hidden"></div>
+            </div>
+
+            <!-- Sección de Consulta -->
+            <div class="bg-white rounded-lg shadow-lg p-6 fade-in">
+                <div class="flex items-center mb-6">
+                    <div class="bg-indigo-100 p-3 rounded-full mr-4">
+                        <i class="fas fa-search text-indigo-600 text-xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-semibold text-gray-800">Consulta de Abonos</h2>
+                </div>
+
+                <form id="consultaForm" class="space-y-4">
+                    <div>
+                        <label for="consultaNombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre del Propietario</label>
+                        <input type="text" id="consultaNombre" name="consultaNombre" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                    </div>
+
+                    <div>
+                        <label for="consultaDireccion" class="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                        <input type="text" id="consultaDireccion" name="consultaDireccion" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                    </div>
+
+                    <button type="button" id="btnConsultar" 
+                            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
+                        <i class="fas fa-search mr-2"></i> Consultar
+                    </button>
+                </form>
+
+                <div class="mt-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-3">Resultados de la consulta</h3>
+                    <div id="resultadosConsulta" class="border border-gray-200 rounded-md p-4 min-h-40">
+                        <p class="text-gray-500 text-center py-8">Ingrese criterios de búsqueda y haga clic en "Consultar"</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección: Gestión de Deudas -->
+        <div class="mt-8 bg-white rounded-lg shadow-lg p-6 fade-in">
+            <div class="flex items-center mb-6">
+                <div class="bg-orange-100 p-3 rounded-full mr-4">
+                    <i class="fas fa-file-invoice-dollar text-orange-600 text-xl"></i>
+                </div>
+                <h2 class="text-2xl font-semibold text-gray-800">Gestión de Deudas</h2>
+            </div>
+
+            <form id="deudaForm" class="space-y-4">
+                <div>
+                    <label for="deudaCodigo" class="block text-sm font-medium text-gray-700 mb-1">Código de Acceso*</label>
+                    <input type="password" id="deudaCodigo" name="deudaCodigo" required maxlength="6" pattern="\d{6}"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                           placeholder="6 dígitos numéricos">
+                    <div id="deudaCodigoError" class="error-message hidden">El código debe tener 6 dígitos numéricos</div>
+                </div>
+
+                <div>
+                    <label for="deudaFecha" class="block text-sm font-medium text-gray-700 mb-1">Fecha de Corte*</label>
+                    <input type="date" id="deudaFecha" name="deudaFecha" required 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                    <div id="deudaFechaError" class="error-message hidden">Seleccione una fecha válida</div>
+                </div>
+
+                <button type="button" id="btnGenerarCorte" 
+                        class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
+                    <i class="fas fa-calculator mr-2"></i> Generar Corte
+                </button>
+            </form>
+
+            <div id="deudaMessage" class="mt-4 p-3 rounded-md hidden"></div>
+        </div>
+
+        <!-- Sección: Administración Código de Acceso -->
+        <div class="mt-8 bg-white rounded-lg shadow-lg p-6 fade-in">
+            <div class="flex items-center mb-6">
+                <div class="bg-indigo-100 p-3 rounded-full mr-4">
+                    <i class="fas fa-key text-indigo-600 text-xl"></i>
+                </div>
+                <h2 class="text-2xl font-semibold text-gray-800">Administración Código de Acceso</h2>
+            </div>
+
+            <form id="codigoForm" class="space-y-4">
+                <div>
+                    <label for="adminCodigo" class="block text-sm font-medium text-gray-700 mb-1">Código Administrador*</label>
+                    <input type="password" id="adminCodigo" name="adminCodigo" required maxlength="6" pattern="\d{6}"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                           placeholder="6 dígitos numéricos">
+                    <div id="adminCodigoError" class="error-message hidden">Código administrador incorrecto</div>
+                </div>
+
+                <div>
+                    <label for="nuevoCodigo" class="block text-sm font-medium text-gray-700 mb-1">Nuevo Código de Acceso*</label>
+                    <input type="password" id="nuevoCodigo" name="nuevoCodigo" required maxlength="6" pattern="\d{6}"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                           placeholder="6 dígitos numéricos diferentes al actual">
+                    <div id="nuevoCodigoError" class="error-message hidden">El código debe tener 6 dígitos y ser diferente al actual</div>
+                </div>
+
+                <button type="button" id="btnNuevoCodigo" 
+                        class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
+                    <i class="fas fa-key mr-2"></i> Cambiar Código
+                </button>
+            </form>
+
+            <div id="codigoMessage" class="mt-4 p-3 rounded-md hidden"></div>
+        </div>
+    </div>
+
+    <script>
+        // Base de datos simulada en localStorage
+        const DB_KEY = 'condominio_abonos';
+        const DB_DEUDAS_KEY = 'condominio_deudas';
+        const ADMIN_CODE = '975500';
+        let CODIGO_VALIDACION = localStorage.getItem('codigo_validacion') || '578963';
+
+        // Inicializar base de datos si no existe
+        if (!localStorage.getItem(DB_KEY)) {
+            localStorage.setItem(DB_KEY, JSON.stringify([]));
+        }
+        if (!localStorage.getItem(DB_DEUDAS_KEY)) {
+            localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify([]));
+        }
+
+        // Obtener la base de datos de abonos
+        function getDatabase() {
+            return JSON.parse(localStorage.getItem(DB_KEY));
+        }
+
+        // Obtener la base de datos de deudas
+        function getDeudasDatabase() {
+            return JSON.parse(localStorage.getItem(DB_DEUDAS_KEY));
+        }
+
+        // Guardar la base de datos de abonos
+        function saveDatabase(db) {
+            localStorage.setItem(DB_KEY, JSON.stringify(db));
+        }
+
+        // Guardar la base de datos de deudas
+        function saveDeudasDatabase(db) {
+            localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(db));
+        }
+
+        // Validar formulario de alta
+        function validarAlta() {
+            let isValid = true;
+            const nombre = document.getElementById('nombre');
+            const direccion = document.getElementById('direccion');
+            const abono = document.getElementById('abono');
+            const fecha = document.getElementById('fecha');
+            const codigo = document.getElementById('codigo');
+
+            // Validar nombre
+            if (!nombre.value.trim()) {
+                nombre.classList.add('input-error');
+                document.getElementById('nombreError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                nombre.classList.remove('input-error');
+                document.getElementById('nombreError').classList.add('hidden');
+            }
+
+            // Validar dirección
+            if (!direccion.value.trim()) {
+                direccion.classList.add('input-error');
+                document.getElementById('direccionError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                direccion.classList.remove('input-error');
+                document.getElementById('direccionError').classList.add('hidden');
+            }
+
+            // Validar abono
+            if (!abono.value || parseFloat(abono.value) <= 0) {
+                abono.classList.add('input-error');
+                document.getElementById('abonoError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                abono.classList.remove('input-error');
+                document.getElementById('abonoError').classList.add('hidden');
+            }
+
+            // Validar fecha
+            if (!fecha.value) {
+                fecha.classList.add('input-error');
+                document.getElementById('fechaError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                fecha.classList.remove('input-error');
+                document.getElementById('fechaError').classList.add('hidden');
+            }
+
+            // Validar código
+            if (codigo.value !== CODIGO_VALIDACION) {
+                codigo.classList.add('input-error');
+                document.getElementById('codigoError').classList.remove('hidden');
+                document.getElementById('codigoError').textContent = 'Código de acceso incorrecto';
+                isValid = false;
+            } else if (!/^\d{6}$/.test(codigo.value)) {
+                codigo.classList.add('input-error');
+                document.getElementById('codigoError').classList.remove('hidden');
+                document.getElementById('codigoError').textContent = 'El código debe tener 6 dígitos numéricos';
+                isValid = false;
+            } else {
+                codigo.classList.remove('input-error');
+                document.getElementById('codigoError').classList.add('hidden');
+            }
+
+            return isValid;
+        }
+
+        // Validar formulario de generación de corte
+        function validarGenerarCorte() {
+            let isValid = true;
+            const deudaCodigo = document.getElementById('deudaCodigo');
+            const deudaFecha = document.getElementById('deudaFecha');
+
+            // Validar código
+            if (deudaCodigo.value !== CODIGO_VALIDACION) {
+                deudaCodigo.classList.add('input-error');
+                document.getElementById('deudaCodigoError').classList.remove('hidden');
+                document.getElementById('deudaCodigoError').textContent = 'Código de acceso incorrecto';
+                isValid = false;
+            } else if (!/^\d{6}$/.test(deudaCodigo.value)) {
+                deudaCodigo.classList.add('input-error');
+                document.getElementById('deudaCodigoError').classList.remove('hidden');
+                document.getElementById('deudaCodigoError').textContent = 'El código debe tener 6 dígitos numéricos';
+                isValid = false;
+            } else {
+                deudaCodigo.classList.remove('input-error');
+                document.getElementById('deudaCodigoError').classList.add('hidden');
+            }
+
+            // Validar fecha
+            if (!deudaFecha.value) {
+                deudaFecha.classList.add('input-error');
+                document.getElementById('deudaFechaError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                deudaFecha.classList.remove('input-error');
+                document.getElementById('deudaFechaError').classList.add('hidden');
+            }
+
+            return isValid;
+        }
+
+        // Validar formulario de cambio de código
+        function validarCambioCodigo() {
+            let isValid = true;
+            const adminCodigo = document.getElementById('adminCodigo');
+            const nuevoCodigo = document.getElementById('nuevoCodigo');
+
+            // Validar código administrador
+            if (adminCodigo.value !== ADMIN_CODE) {
+                adminCodigo.classList.add('input-error');
+                document.getElementById('adminCodigoError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                adminCodigo.classList.remove('input-error');
+                document.getElementById('adminCodigoError').classList.add('hidden');
+            }
+
+            // Validar nuevo código
+            if (!/^\d{6}$/.test(nuevoCodigo.value)) {
+                nuevoCodigo.classList.add('input-error');
+                document.getElementById('nuevoCodigoError').classList.remove('hidden');
+                document.getElementById('nuevoCodigoError').textContent = 'El código debe tener 6 dígitos numéricos';
+                isValid = false;
+            } else if (nuevoCodigo.value === CODIGO_VALIDACION) {
+                nuevoCodigo.classList.add('input-error');
+                document.getElementById('nuevoCodigoError').classList.remove('hidden');
+                document.getElementById('nuevoCodigoError').textContent = 'El nuevo código debe ser diferente al actual';
+                isValid = false;
+            } else {
+                nuevoCodigo.classList.remove('input-error');
+                document.getElementById('nuevoCodigoError').classList.add('hidden');
+            }
+
+            return isValid;
+        }
+
+        // Registrar un nuevo abono
+        document.getElementById('btnAlta').addEventListener('click', function() {
+            if (!validarAlta()) return;
+
+            const db = getDatabase();
+            const deudasDb = getDeudasDatabase();
+            const nombre = document.getElementById('nombre').value.trim();
+            const direccion = document.getElementById('direccion').value.trim();
+            const abono = parseFloat(document.getElementById('abono').value);
+            const fecha = document.getElementById('fecha').value;
+
+            // Crear nuevo registro de abono
+            const nuevoAbono = {
+                id: Date.now(),
+                nombre,
+                direccion,
+                abono,
+                fecha,
+                fechaRegistro: new Date().toISOString()
+            };
+
+            db.push(nuevoAbono);
+            saveDatabase(db);
+
+            // Actualizar deuda: restar el abono a la deuda correspondiente
+            let deudaEncontrada = false;
+            const nuevasDeudas = deudasDb.map(deuda => {
+                if (deuda.direccion.toLowerCase() === direccion.toLowerCase()) {
+                    deudaEncontrada = true;
+                    return {
+                        ...deuda,
+                        deuda: Math.max(0, deuda.deuda - abono),
+                        ultimoAbono: fecha,
+                        ultimoAbonoMonto: abono
+                    };
+                }
+                return deuda;
+            });
+
+            if (!deudaEncontrada) {
+                // Si no existe deuda para esta dirección, no hacemos nada (o podríamos crear un registro con deuda 0)
+            } else {
+                saveDeudasDatabase(nuevasDeudas);
+            }
+
+            // Limpiar formulario (excepto nombre y dirección para facilitar múltiples abonos)
+            document.getElementById('abono').value = '';
+            document.getElementById('fecha').value = '';
+            document.getElementById('codigo').value = '';
+            
+            showMessage('altaMessage', 'Abono registrado con éxito', 'success');
+        });
+
+        // Eliminar abonos por dirección
+        document.getElementById('btnEliminar').addEventListener('click', function() {
+            if (!validarAlta()) return;
+
+            const db = getDatabase();
+            const nombre = document.getElementById('nombre').value.trim();
+            const direccion = document.getElementById('direccion').value.trim();
+
+            // Filtrar para mantener solo los que NO coincidan
+            const nuevosRegistros = db.filter(abono => 
+                !(abono.nombre.toLowerCase() === nombre.toLowerCase() && 
+                  abono.direccion.toLowerCase() === direccion.toLowerCase())
+            );
+
+            if (nuevosRegistros.length === db.length) {
+                showMessage('altaMessage', 'No se encontraron abonos para eliminar', 'error');
+                return;
+            }
+
+            saveDatabase(nuevosRegistros);
+
+            // Limpiar formulario
+            document.getElementById('altaForm').reset();
+            showMessage('altaMessage', 'Abonos eliminados con éxito', 'success');
+        });
+
+        // Consultar abonos
+        document.getElementById('btnConsultar').addEventListener('click', function() {
+            const db = getDatabase();
+            const deudasDb = getDeudasDatabase();
+            const nombre = document.getElementById('consultaNombre').value.trim().toLowerCase();
+            const direccion = document.getElementById('consultaDireccion').value.trim().toLowerCase();
+
+            // Filtrar resultados
+            let resultados = db;
+            
+            if (nombre) {
+                resultados = resultados.filter(abono => abono.nombre.toLowerCase().includes(nombre));
+            }
+            
+            if (direccion) {
+                resultados = resultados.filter(abono => abono.direccion.toLowerCase().includes(direccion));
+            }
+
+            // Agrupar por dirección para calcular totales
+            const agrupados = {};
+            resultados.forEach(abono => {
+                const key = `${abono.nombre}|${abono.direccion}`;
+                if (!agrupados[key]) {
+                    agrupados[key] = {
+                        nombre: abono.nombre,
+                        direccion: abono.direccion,
+                        abonos: [],
+                        totalAbonos: 0,
+                        deuda: 0
+                    };
+                    
+                    // Buscar deuda correspondiente a esta dirección
+                    const deudaRegistro = deudasDb.find(d => d.direccion.toLowerCase() === abono.direccion.toLowerCase());
+                    if (deudaRegistro) {
+                        agrupados[key].deuda = deudaRegistro.deuda;
+                    }
+                }
+                agrupados[key].abonos.push(abono);
+                agrupados[key].totalAbonos += abono.abono;
+            });
+
+            // Mostrar resultados
+            const resultadosDiv = document.getElementById('resultadosConsulta');
+            
+            if (resultados.length === 0) {
+                resultadosDiv.innerHTML = '<p class="text-gray-500 text-center py-8">No se encontraron resultados</p>';
+                return;
+            }
+
+            let html = '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200">';
+            html += '<thead class="bg-gray-50"><tr>';
+            html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>';
+            html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dirección</th>';
+            html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Abono</th>';
+            html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>';
+            html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+
+            // Mostrar cada abono agrupado por dirección
+            Object.values(agrupados).forEach(grupo => {
+                // Mostrar cada abono individual
+                grupo.abonos.forEach((abono, index) => {
+                    html += `<tr class="hover:bg-gray-50">`;
+                    // Solo mostrar nombre y dirección en la primera fila del grupo
+                    if (index === 0) {
+                        html += `<td rowspan="${grupo.abonos.length}" class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.nombre}</td>`;
+                        html += `<td rowspan="${grupo.abonos.length}" class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.direccion}</td>`;
+                    }
+                    html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${abono.abono.toFixed(2)}</td>`;
+                    html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${formatDate(abono.fecha)}</td>`;
+                    html += `</tr>`;
+                });
+
+                // Fila de total de abonos para el grupo
+                html += `<tr class="total-row">`;
+                html += `<td colspan="2" class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">Total Abonos:</td>`;
+                html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$${grupo.totalAbonos.toFixed(2)}</td>`;
+                html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"></td>`;
+                html += `</tr>`;
+
+                // Fila de deuda para el grupo
+                html += `<tr class="deuda-row">`;
+                html += `<td colspan="2" class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">Deuda Actual:</td>`;
+                html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${grupo.deuda > 0 ? 'deuda-alta' : 'text-gray-900'}">$${grupo.deuda.toFixed(2)}</td>`;
+                html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"></td>`;
+                html += `</tr>`;
+            });
+
+            html += '</tbody></table></div>';
+            resultadosDiv.innerHTML = html;
+        });
+
+        // Generar corte de deudas
+        document.getElementById('btnGenerarCorte').addEventListener('click', function() {
+            if (!validarGenerarCorte()) return;
+
+            const db = getDatabase();
+            const deudasDb = getDeudasDatabase();
+            const fechaCorte = document.getElementById('deudaFecha').value;
+
+            // Obtener todas las direcciones únicas de abonos
+            const direccionesUnicas = [...new Set(db.map(abono => abono.direccion.toLowerCase()))];
+
+            // Actualizar deudas para cada dirección
+            const nuevasDeudas = [...deudasDb];
+            
+            direccionesUnicas.forEach(direccion => {
+                // Buscar si ya existe un registro de deuda para esta dirección
+                const index = nuevasDeudas.findIndex(d => d.direccion.toLowerCase() === direccion);
+                const abonoEjemplo = db.find(a => a.direccion.toLowerCase() === direccion);
+                
+                if (index >= 0) {
+                    // Actualizar deuda existente (+180)
+                    nuevasDeudas[index] = {
+                        ...nuevasDeudas[index],
+                        deuda: nuevasDeudas[index].deuda + 180,
+                        ultimoCorte: fechaCorte
+                    };
+                } else {
+                    // Crear nuevo registro de deuda
+                    nuevasDeudas.push({
+                        id: Date.now(),
+                        nombre: abonoEjemplo.nombre,
+                        direccion: abonoEjemplo.direccion,
+                        deuda: 180,
+                        ultimoCorte: fechaCorte,
+                        fechaRegistro: new Date().toISOString()
+                    });
+                }
+            });
+
+            // Guardar cambios
+            saveDeudasDatabase(nuevasDeudas);
+
+            // Limpiar formulario
+            document.getElementById('deudaCodigo').value = '';
+            document.getElementById('deudaFecha').value = '';
+            
+            showMessage('deudaMessage', `Corte generado con éxito. Se agregó $180 a ${direccionesUnicas.length} direcciones.`, 'success');
+        });
+
+        // Cambiar código de acceso
+        document.getElementById('btnNuevoCodigo').addEventListener('click', function() {
+            if (!validarCambioCodigo()) return;
+
+            const nuevoCodigo = document.getElementById('nuevoCodigo').value;
+            
+            // Actualizar código de validación
+            CODIGO_VALIDACION = nuevoCodigo;
+            localStorage.setItem('codigo_validacion', nuevoCodigo);
+            
+            // Limpiar formulario
+            document.getElementById('codigoForm').reset();
+            showMessage('codigoMessage', 'Código de acceso actualizado con éxito', 'success');
+        });
+
+        // Mostrar mensajes
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.classList.remove('hidden');
+            element.textContent = message;
+            
+            // Estilos según tipo
+            if (type === 'success') {
+                element.classList.remove('bg-red-100', 'text-red-700');
+                element.classList.add('bg-green-100', 'text-green-700');
+            } else {
+                element.classList.remove('bg-green-100', 'text-green-700');
+                element.classList.add('bg-red-100', 'text-red-700');
+            }
+            
+            // Ocultar después de 5 segundos
+            setTimeout(() => {
+                element.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Formatear fecha para mostrar
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('es-MX');
+        }
+
+        // Formatear campos numéricos
+        document.getElementById('abono').addEventListener('blur', function(e) {
+            if (e.target.value) {
+                e.target.value = parseFloat(e.target.value).toFixed(2);
+            }
+        });
+    </script>
+<p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Made with <img src="https://enzostvs-deepsite.hf.space/logo.svg" alt="DeepSite Logo" style="width: 16px; height: 16px; vertical-align: middle;display:inline-block;margin-right:3px;filter:brightness(0) invert(1);"><a href="https://enzostvs-deepsite.hf.space" style="color: #fff;text-decoration: underline;" target="_blank" >DeepSite</a> - 🧬 <a href="https://enzostvs-deepsite.hf.space?remix=chronozain/ekiwa" style="color: #fff;text-decoration: underline;" target="_blank" >Remix</a></p></body>
+</html>
