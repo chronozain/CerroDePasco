@@ -548,6 +548,13 @@
                 html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${grupo.deuda > 0 ? 'deuda-alta' : 'text-gray-900'}">$${grupo.deuda.toFixed(2)}</td>`;
                 html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"></td>`;
                 html += `</tr>`;
+
+                //Fila de Balance General
+                html += `<tr class="bg-blue-50">`;
+html += `<td colspan="2" class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">Balance General:</td>`;
+html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${(grupo.totalAbonos - grupo.deuda) < 0 ? 'text-red-600' : 'text-green-600'}">$${(grupo.totalAbonos - grupo.deuda).toFixed(2)}</td>`;
+html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"></td>`;
+html += `</tr>`;
             });
 
             html += '</tbody></table></div>';
