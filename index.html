@@ -794,7 +794,8 @@ async function existePropietario(nombre, direccion) {
             const direccion = document.getElementById('direccion');
             const abono = document.getElementById('abono');
             const fecha = document.getElementById('fecha');
-            const codigo = document.getElementById('codigo').value;
+            const codigoElement = document.getElementById('codigo');
+            const codigo = codigoElement.value;
             const isValidCode = await validateAccessCode(codigo);
     
     if (!isValidCode) {
