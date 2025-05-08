@@ -1198,8 +1198,8 @@ document.getElementById('btnConsultar').addEventListener('click', async function
         const deudasArray = Object.entries(deudas).map(([key, value]) => ({ ...value, firebaseKey: key }));
 
 let resultados = [...abonosArray, ...deudasArray].filter(item => {
-    const matchesNombre = nombre ? item.nombre?.toLowerCase() === nombre.toLowerCase() : true;
-    const matchesDireccion = direccion ? item.direccion?.toLowerCase() === direccion.toLowerCase() : true;
+    const matchesNombre = nombre ? item.nombre?.toLowerCase().trim().includes(nombre.toLowerCase().trim()) : true;
+    const matchesDireccion = direccion ? item.direccion?.toLowerCase().trim().includes(direccion.toLowerCase().trim()) : true;
     return matchesNombre && matchesDireccion;
 });
 
