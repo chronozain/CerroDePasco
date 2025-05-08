@@ -1208,35 +1208,36 @@ html += `</tr>`;
             }
         });
 
-        // Contador para direcciones procesadas
         let direccionesProcesadas = 0;
         
-        // Procesar cada dirección única
         for (const direccion of direccionesUnicas) {
-            // Buscar un abono de ejemplo para obtener el nombre del propietario
             const abonoEjemplo = Object.values(abonos).find(a => 
                 a.direccion && a.direccion.toLowerCase() === direccion
             );
             
             if (!abonoEjemplo) continue;
             
-            // Buscar si ya existe una deuda para esta dirección
+            // Buscar si ya existe una deuda para esta dirección con la misma fecha de corte
             const snapshot = await deudasRef.orderByChild('direccion').equalTo(abonoEjemplo.direccion).once('value');
-            
+            let deudaExistente = null;
+
             if (snapshot.exists()) {
-                // Actualizar deuda existente
-                const key = Object.keys(snapshot.val())[0];
-                const deudaActual = snapshot.val()[key];
-                const nuevaDeuda = (parseFloat(deudaActual.deuda) || 0) + montoMensual;
-                
+                Object.values(snapshot.val()).forEach(deuda => {
+                    if (deuda.ultimoCorte === fechaCorte) {
+                        deudaExistente = deuda;
+                    }
+                });
+            }
+
+            if (deudaExistente) {
+                // Si la fecha ya existe, sumar el monto al registro existente
+                const key = Object.keys(snapshot.val()).find(k => snapshot.val()[k].ultimoCorte === fechaCorte);
                 await deudasRef.child(key).update({
-                    deuda: nuevaDeuda,
-                    ultimoCorte: fechaCorte,
-                    comentario: "Cobro de Mantenimiento",
+                    deuda: parseFloat(deudaExistente.deuda) + montoMensual,
                     fechaActualizacion: new Date().toISOString()
                 });
             } else {
-                // Crear nuevo registro de deuda
+                // Si la fecha es diferente, crear un nuevo registro de deuda
                 const nuevaDeuda = {
                     nombre: abonoEjemplo.nombre,
                     direccion: abonoEjemplo.direccion,
@@ -1246,18 +1247,17 @@ html += `</tr>`;
                     fechaRegistro: new Date().toISOString(),
                     fechaActualizacion: new Date().toISOString()
                 };
-                
                 await deudasRef.push(nuevaDeuda);
             }
-            
+
             direccionesProcesadas++;
         }
 
         // Limpiar formulario
         document.getElementById('deudaCodigo').value = '';
         document.getElementById('deudaFecha').value = '';
-        
-        showMessage('deudaMessage', `Corte generado con éxito. Se agregó $${montoMensual.toFixed(2)} a ${direccionesProcesadas} direcciones.`, 'success');
+
+        showMessage('deudaMessage', `Corte generado con éxito. Se procesaron ${direccionesProcesadas} direcciones correctamente.`, 'success');
     } catch (error) {
         console.error('Error al generar corte:', error);
         showMessage('deudaMessage', 'Error al generar el corte de deudas', 'error');
@@ -1266,7 +1266,6 @@ html += `</tr>`;
         btn.innerHTML = '<i class="fas fa-calculator mr-2"></i> Generar Corte';
     }
 });
-
         // Cambiar código de acceso
         document.getElementById('btnNuevoCodigo').addEventListener('click', async function() {
     if (!await validarCambioCodigo()) return;
