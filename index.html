@@ -569,26 +569,35 @@ async function getDatabase() {
         function saveDeudasDatabase(db) {
             localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(db));
         }
-        function validarGenerarCorte() {
+        async function validarGenerarCorte() {
     let isValid = true;
     const deudaCodigo = document.getElementById('deudaCodigo');
     const deudaFecha = document.getElementById('deudaFecha');
     const montoMensual = document.getElementById('montoMensual');
 
     // Validar código
-    if (deudaCodigo.value !== CODIGO_VALIDACION) {
+    try {
+        const isValidCode = await validateAccessCode(deudaCodigo.value);
+        if (!isValidCode) {
+            deudaCodigo.classList.add('input-error');
+            document.getElementById('deudaCodigoError').classList.remove('hidden');
+            document.getElementById('deudaCodigoError').textContent = 'Código de acceso incorrecto';
+            isValid = false;
+        } else if (!/^\d{6}$/.test(deudaCodigo.value)) {
+            deudaCodigo.classList.add('input-error');
+            document.getElementById('deudaCodigoError').classList.remove('hidden');
+            document.getElementById('deudaCodigoError').textContent = 'El código debe tener 6 dígitos numéricos';
+            isValid = false;
+        } else {
+            deudaCodigo.classList.remove('input-error');
+            document.getElementById('deudaCodigoError').classList.add('hidden');
+        }
+    } catch (error) {
+        console.error('Error al validar código:', error);
         deudaCodigo.classList.add('input-error');
         document.getElementById('deudaCodigoError').classList.remove('hidden');
-        document.getElementById('deudaCodigoError').textContent = 'Código de acceso incorrecto';
+        document.getElementById('deudaCodigoError').textContent = 'Error al validar el código';
         isValid = false;
-    } else if (!/^\d{6}$/.test(deudaCodigo.value)) {
-        deudaCodigo.classList.add('input-error');
-        document.getElementById('deudaCodigoError').classList.remove('hidden');
-        document.getElementById('deudaCodigoError').textContent = 'El código debe tener 6 dígitos numéricos';
-        isValid = false;
-    } else {
-        deudaCodigo.classList.remove('input-error');
-        document.getElementById('deudaCodigoError').classList.add('hidden');
     }
 
     // Validar fecha
@@ -1174,7 +1183,7 @@ html += `</tr>`;
 
         // Generar corte de deudas
         document.getElementById('btnGenerarCorte').addEventListener('click', async function() {
-    if (!validarGenerarCorte()) return;
+    if (!await validarGenerarCorte()) return;
 
     const fechaCorte = document.getElementById('deudaFecha').value;
     const montoMensual = parseFloat(document.getElementById('montoMensual').value);
