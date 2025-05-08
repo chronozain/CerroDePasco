@@ -1560,18 +1560,7 @@ document.getElementById('btnExportar').addEventListener('click', async function(
     const btn = this;
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Exportando...';
-    
-    // Validar código de acceso
-    if (codigo !== CODIGO_VALIDACION) {
-        document.getElementById('exportarCodigo').classList.add('input-error');
-        document.getElementById('exportarCodigoError').textContent = 'Código de acceso incorrecto';
-        document.getElementById('exportarCodigoError').classList.remove('hidden');
-        return;
-    } else {
-        document.getElementById('exportarCodigo').classList.remove('input-error');
-        document.getElementById('exportarCodigoError').classList.add('hidden');
-    }
-    
+
     try {
         // Obtener datos de Firebase
         const [abonosSnapshot, deudasSnapshot] = await Promise.all([
@@ -1581,14 +1570,14 @@ document.getElementById('btnExportar').addEventListener('click', async function(
         
         const abonos = abonosSnapshot.val() || {};
         const deudas = deudasSnapshot.val() || {};
-        
-        // Convertir objetos a arrays y filtrar según el tipo de exportación
+
+        // Convertir objetos en arrays
         let abonosArray = Object.values(abonos);
         let deudasArray = Object.values(deudas);
-        
-        // Filtrar según tipo de exportación
+
+        // Filtrar según el tipo de exportación
         let datosFiltrados = [];
-        
+
         switch(tipo) {
             case 'cliente': {
                 const direccion = document.getElementById('exportarCliente').value.trim().toLowerCase();
@@ -1627,7 +1616,7 @@ document.getElementById('btnExportar').addEventListener('click', async function(
             return;
         }
 
-        // Crear contenido CSV
+        // **Ajustar la estructura del CSV para incluir cada deuda separadamente**
         let csvContent = "Nombre,Dirección,Fecha,Monto,Tipo,Comentario\n";
 
         datosFiltrados.forEach(item => {
@@ -1647,6 +1636,8 @@ document.getElementById('btnExportar').addEventListener('click', async function(
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+
+        // Limpiar el campo de código después de la exportación
         document.getElementById('exportarCodigo').value = '';
 
         showMessage('exportacionMessage', 'CSV exportado correctamente', 'success');
