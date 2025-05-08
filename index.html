@@ -1592,6 +1592,102 @@ document.getElementById('exportarTipo').addEventListener('change', function() {
     document.getElementById('exportarClienteGroup').classList.toggle('hidden', tipo !== 'cliente');
     document.getElementById('exportarMesGroup').classList.toggle('hidden', tipo !== 'mes');
 });
+//Eliminar registros y Layout
+document.getElementById('btnEliminarDatos').addEventListener('click', async function() {
+    const adminCodigo = document.getElementById('adminCodigoImport').value;
+    
+    if (adminCodigo !== ADMIN_CODE) {
+        showMessage('importacionMessage', 'Código incorrecto', 'error');
+        return;
+    }
+
+    try {
+        await Promise.all([
+            dbRef.remove(),
+            deudasRef.remove()
+        ]);
+        
+        showMessage('importacionMessage', 'Base de datos eliminada con éxito', 'success');
+    } catch (error) {
+        console.error('Error al eliminar BD:', error);
+        showMessage('importacionMessage', 'Error al eliminar datos', 'error');
+    }
+});
+
+document.getElementById('btnGenerarCSV').addEventListener('click', async function() {
+    const adminCodigo = document.getElementById('adminCodigoImport').value;
+    
+    if (adminCodigo !== ADMIN_CODE) {
+        showMessage('importacionMessage', 'Código incorrecto', 'error');
+        return;
+    }
+
+    try {
+        const snapshot = await dbRef.once('value');
+        const propietarios = snapshot.val() || {};
+
+        let csvContent = "Nombre,Dirección,Monto de Deuda,Comentario\n";
+        
+        Object.values(propietarios).forEach(prop => {
+            csvContent += `"${prop.nombre}","${prop.direccion}","${prop.deuda || 0}","deuda inicial"\n`;
+        });
+
+        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'layout_importacion.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        showMessage('importacionMessage', 'Layout CSV generado correctamente', 'success');
+    } catch (error) {
+        console.error('Error al generar CSV:', error);
+        showMessage('importacionMessage', 'Error al generar el layout', 'error');
+    }
+});
+
+document.getElementById('btnCargarCSV').addEventListener('click', async function() {
+    const fileInput = document.getElementById('archivoCSV');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        showMessage('importacionMessage', 'Seleccione un archivo CSV', 'error');
+        return;
+    }
+
+    const adminCodigo = document.getElementById('adminCodigoImport').value;
+    
+    if (adminCodigo !== ADMIN_CODE) {
+        showMessage('importacionMessage', 'Código incorrecto', 'error');
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async function(event) {
+        const csvData = event.target.result.split('\n').slice(1); // Omitir la primera línea (encabezado)
+        
+        for (let line of csvData) {
+            if (line.trim() === '') continue;
+            
+            const [nombre, direccion, montoDeuda, comentario] = line.split(',').map(value => value.replace(/"/g, '').trim());
+            
+            const nuevaDeuda = {
+                nombre,
+                direccion,
+                deuda: parseFloat(montoDeuda) || 0,
+                comentario,
+                fechaRegistro: new Date().toISOString()
+            };
+
+            await deudasRef.push(nuevaDeuda);
+        }
+
+        showMessage('importacionMessage', 'CSV cargado correctamente en la BD', 'success');
+    };
+
+    reader.readAsText(file);
+});
 
 // Función para exportar datos - Versión corregida para Firebase
 document.getElementById('btnExportar').addEventListener('click', async function() {
