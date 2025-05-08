@@ -1119,6 +1119,14 @@ document.getElementById('btnEliminar').addEventListener('click', async function(
 
         // Consultar abonos
 document.getElementById('btnConsultar').addEventListener('click', async function() {
+    const nombre = document.getElementById('consultaNombre').value.trim();
+    const direccion = document.getElementById('consultaDireccion').value.trim();
+    
+    // Validar que al menos un campo tenga información
+    if (!nombre && !direccion) {
+        showMessage('resultadosConsulta', 'Ingrese al menos un criterio de búsqueda (nombre o dirección)', 'error');
+        return;
+    }
     const db = await getDatabase();
     const deudasDb = await getDeudasDatabase();
     
