@@ -493,6 +493,74 @@ async function getDatabase() {
         function saveDeudasDatabase(db) {
             localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(db));
         }
+        function validarDeudaManual() {
+    let isValid = true;
+    const nombre = document.getElementById('deudaManualNombre');
+    const direccion = document.getElementById('deudaManualDireccion');
+    const monto = document.getElementById('deudaManualMonto');
+    const codigo = document.getElementById('deudaManualCodigo');
+
+    // Validar nombre
+    if (!nombre.value.trim()) {
+        nombre.classList.add('input-error');
+        isValid = false;
+    } else {
+        nombre.classList.remove('input-error');
+    }
+
+    // Validar dirección
+    if (!direccion.value.trim()) {
+        direccion.classList.add('input-error');
+        document.getElementById('deudaManualDireccionError').textContent = 'Ingrese una dirección válida';
+        document.getElementById('deudaManualDireccionError').classList.remove('hidden');
+        isValid = false;
+    } else {
+        direccion.classList.remove('input-error');
+        document.getElementById('deudaManualDireccionError').classList.add('hidden');
+    }
+
+    // Validar monto
+    if (!monto.value || parseFloat(monto.value) <= 0) {
+        monto.classList.add('input-error');
+        isValid = false;
+    } else {
+        monto.classList.remove('input-error');
+    }
+
+    // Validar código
+    if (codigo.value !== CODIGO_VALIDACION) {
+        codigo.classList.add('input-error');
+        document.getElementById('deudaManualCodigoError').textContent = 'Código de acceso incorrecto';
+        document.getElementById('deudaManualCodigoError').classList.remove('hidden');
+        isValid = false;
+    } else if (!/^\d{6}$/.test(codigo.value)) {
+        codigo.classList.add('input-error');
+        document.getElementById('deudaManualCodigoError').textContent = 'El código debe tener 6 dígitos numéricos';
+        document.getElementById('deudaManualCodigoError').classList.remove('hidden');
+        isValid = false;
+    } else {
+        codigo.classList.remove('input-error');
+        document.getElementById('deudaManualCodigoError').classList.add('hidden');
+    }
+
+    return isValid;
+}
+
+// Función para verificar si existe un propietario con esa dirección
+async function existePropietario(nombre, direccion) {
+    try {
+        const snapshot = await dbRef.once('value');
+        const abonos = snapshot.val() || {};
+        
+        return Object.values(abonos).some(abono => 
+            abono.nombre.toLowerCase() === nombre.toLowerCase() && 
+            abono.direccion.toLowerCase() === direccion.toLowerCase()
+        );
+    } catch (error) {
+        console.error('Error al verificar propietario:', error);
+        return false;
+    }
+}
 
         // Validar formulario de alta
         function validarAlta() {
@@ -959,51 +1027,72 @@ function validarDireccionExiste(nombre, direccion) {
     );
 }
 
-// Alta manual de deuda
-document.getElementById('btnDeudaManual').addEventListener('click', function() {
+// Alta manual de deuda - Versión corregida para Firebase
+document.getElementById('btnDeudaManual').addEventListener('click', async function() {
+    if (!validarDeudaManual()) return;
+
     const nombre = document.getElementById('deudaManualNombre').value.trim();
     const direccion = document.getElementById('deudaManualDireccion').value.trim();
     const monto = parseFloat(document.getElementById('deudaManualMonto').value);
     const codigo = document.getElementById('deudaManualCodigo').value;
-    
-    // Validaciones
-    if (codigo !== CODIGO_VALIDACION) {
-        document.getElementById('deudaManualCodigo').classList.add('input-error');
-        document.getElementById('deudaManualCodigoError').classList.remove('hidden');
+
+    // Verificar que exista el propietario
+    const existe = await existePropietario(nombre, direccion);
+    if (!existe) {
+        document.getElementById('deudaManualDireccion').classList.add('input-error');
+        document.getElementById('deudaManualDireccionError').textContent = 'No existe un propietario con esta dirección';
+        document.getElementById('deudaManualDireccionError').classList.remove('hidden');
         return;
     }
-    
-if (!validarDireccionExiste(nombre, direccion)) {
-    document.getElementById('deudaManualDireccion').classList.add('input-error');
-    document.getElementById('deudaManualDireccionError').textContent = 'La dirección no coincide con ningún propietario registrado';
-    document.getElementById('deudaManualDireccionError').classList.remove('hidden');
-    return;
-}
-    
-    // Registrar deuda
-    const deudasDb = getDeudasDatabase();
-    const index = deudasDb.findIndex(d => d.direccion.toLowerCase() === direccion.toLowerCase());
-    
-    if (index >= 0) {
-        // Actualizar deuda existente
-        deudasDb[index].deuda += monto;
-    } else {
-        // Crear nueva deuda
-        deudasDb.push({
-            id: Date.now(),
-            nombre,
-            direccion,
-            deuda: monto,
-            fechaRegistro: new Date().toISOString(),
-            esManual: true
-        });
+
+    try {
+        // Buscar si ya existe una deuda para esta dirección
+        const snapshot = await deudasRef.orderByChild('direccion').equalTo(direccion).once('value');
+        
+        if (snapshot.exists()) {
+            // Actualizar deuda existente
+            const key = Object.keys(snapshot.val())[0];
+            const deudaActual = snapshot.val()[key];
+            const nuevaDeuda = parseFloat(deudaActual.deuda) + monto;
+            
+            await deudasRef.child(key).update({
+                deuda: nuevaDeuda,
+                ultimaActualizacion: new Date().toISOString(),
+                esManual: true
+            });
+            
+            // Actualizar también en localStorage como respaldo
+            const localDeudas = JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || [];
+            const updatedLocalDeudas = localDeudas.map(d => 
+                d.direccion === direccion ? {...d, deuda: nuevaDeuda} : d
+            );
+            localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(updatedLocalDeudas));
+        } else {
+            // Crear nueva deuda
+            const nuevaDeuda = {
+                nombre,
+                direccion,
+                deuda: monto,
+                fechaRegistro: new Date().toISOString(),
+                ultimaActualizacion: new Date().toISOString(),
+                esManual: true
+            };
+            
+            await deudasRef.push(nuevaDeuda);
+            
+            // Guardar también en localStorage como respaldo
+            const localDeudas = JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || [];
+            localDeudas.push(nuevaDeuda);
+            localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(localDeudas));
+        }
+
+        // Limpiar formulario
+        document.getElementById('deudaManualForm').reset();
+        showMessage('deudaManualMessage', 'Deuda manual registrada con éxito', 'success');
+    } catch (error) {
+        console.error('Error al registrar deuda manual:', error);
+        showMessage('deudaManualMessage', 'Error al registrar la deuda', 'error');
     }
-    
-    saveDeudasDatabase(deudasDb);
-    
-    // Limpiar formulario
-    document.getElementById('deudaManualForm').reset();
-    showMessage('deudaManualMessage', 'Deuda manual registrada con éxito', 'success');
 });
 function generarNumeroComprobante() {
     const ahora = new Date();
