@@ -1239,6 +1239,9 @@ document.getElementById('exportarTipo').addEventListener('change', function() {
 document.getElementById('btnExportar').addEventListener('click', async function() {
     const tipo = document.getElementById('exportarTipo').value;
     const codigo = document.getElementById('exportarCodigo').value;
+    const btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Exportando...';
     
     // Validar código de acceso
     if (codigo !== CODIGO_VALIDACION) {
@@ -1350,6 +1353,9 @@ document.getElementById('btnExportar').addEventListener('click', async function(
     } catch (error) {
         console.error('Error al exportar:', error);
         showMessage('exportacionMessage', 'Error al exportar los datos', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-file-csv mr-2"></i> Exportar a CSV';
     }
 });
         
