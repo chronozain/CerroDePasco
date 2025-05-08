@@ -1197,22 +1197,27 @@ document.getElementById('btnConsultar').addEventListener('click', async function
         const abonosArray = Object.entries(abonos).map(([key, value]) => ({ ...value, firebaseKey: key }));
         const deudasArray = Object.entries(deudas).map(([key, value]) => ({ ...value, firebaseKey: key }));
 
-let resultados = [...abonosArray, ...deudasArray].filter(item => {
-    const matchesNombre = nombre ? item.nombre?.toLowerCase() === nombre.toLowerCase() : false;
-    const matchesDireccion = direccion ? item.direccion?.toLowerCase() === direccion.toLowerCase() : false;
-    
-    // Si hay dirección ingresada, ignorar el nombre vacío
-    if (direccion && !nombre) {
-        return matchesDireccion;
-    }
-    
-    // Si hay nombre y dirección, aplicar ambos filtros
-    return matchesNombre && matchesDireccion;
-});
+        // Filtrar resultados correctamente
+        let resultados = [...abonosArray, ...deudasArray].filter(item => {
+            // Si solo hay nombre, filtrar por nombre
+            if (nombre && !direccion) {
+                return item.nombre?.toLowerCase().includes(nombre);
+            }
+            // Si solo hay dirección, filtrar por dirección
+            else if (direccion && !nombre) {
+                return item.direccion?.toLowerCase().includes(direccion);
+            }
+            // Si hay ambos, filtrar por ambos
+            else {
+                return item.nombre?.toLowerCase().includes(nombre) && 
+                       item.direccion?.toLowerCase().includes(direccion);
+            }
+        });
 
+        // Resto del código para agrupar y mostrar resultados...
         const agrupados = {};
 
-        // Procesar abonos
+        // Procesar abonos y deudas
         resultados.forEach(item => {
             const key = `${item.nombre}|${item.direccion}`;
             if (!agrupados[key]) {
@@ -1228,25 +1233,13 @@ let resultados = [...abonosArray, ...deudasArray].filter(item => {
             if (item.abono) {
                 agrupados[key].abonos.push(item);
                 agrupados[key].totalAbonos += item.abono;
-            } else if (item.deuda) {
+            } 
+            if (item.deuda) {
                 agrupados[key].deuda = item.deuda;
             }
         });
 
-        // Agregar clientes que solo tienen deudas
-        Object.values(deudas).forEach(deuda => {
-            const key = `${deuda.nombre}|${deuda.direccion}`;
-            if (!agrupados[key]) {
-                agrupados[key] = {
-                    nombre: deuda.nombre,
-                    direccion: deuda.direccion,
-                    abonos: [],
-                    totalAbonos: 0,
-                    deuda: deuda.deuda || 0
-                };
-            }
-        });
-
+        // Mostrar resultados
         const resultadosDiv = document.getElementById('resultadosConsulta');
         if (Object.keys(agrupados).length === 0) {
             resultadosDiv.innerHTML = '<p class="text-gray-500 text-center py-8">No se encontraron resultados</p>';
