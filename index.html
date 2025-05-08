@@ -503,6 +503,49 @@ async function getDatabase() {
         function saveDeudasDatabase(db) {
             localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(db));
         }
+        function validarGenerarCorte() {
+    let isValid = true;
+    const deudaCodigo = document.getElementById('deudaCodigo');
+    const deudaFecha = document.getElementById('deudaFecha');
+    const montoMensual = document.getElementById('montoMensual');
+
+    // Validar código
+    if (deudaCodigo.value !== CODIGO_VALIDACION) {
+        deudaCodigo.classList.add('input-error');
+        document.getElementById('deudaCodigoError').classList.remove('hidden');
+        document.getElementById('deudaCodigoError').textContent = 'Código de acceso incorrecto';
+        isValid = false;
+    } else if (!/^\d{6}$/.test(deudaCodigo.value)) {
+        deudaCodigo.classList.add('input-error');
+        document.getElementById('deudaCodigoError').classList.remove('hidden');
+        document.getElementById('deudaCodigoError').textContent = 'El código debe tener 6 dígitos numéricos';
+        isValid = false;
+    } else {
+        deudaCodigo.classList.remove('input-error');
+        document.getElementById('deudaCodigoError').classList.add('hidden');
+    }
+
+    // Validar fecha
+    if (!deudaFecha.value) {
+        deudaFecha.classList.add('input-error');
+        document.getElementById('deudaFechaError').classList.remove('hidden');
+        isValid = false;
+    } else {
+        deudaFecha.classList.remove('input-error');
+        document.getElementById('deudaFechaError').classList.add('hidden');
+    }
+
+    // Validar monto
+    if (!montoMensual.value || parseFloat(montoMensual.value) <= 0) {
+        montoMensual.classList.add('input-error');
+        isValid = false;
+    } else {
+        montoMensual.classList.remove('input-error');
+    }
+
+    return isValid;
+}
+
         function validarDeudaManual() {
     let isValid = true;
     const nombre = document.getElementById('deudaManualNombre');
@@ -922,53 +965,90 @@ html += `</tr>`;
         });
 
         // Generar corte de deudas
-        document.getElementById('btnGenerarCorte').addEventListener('click', function() {
-            if (!validarGenerarCorte()) return;
+        document.getElementById('btnGenerarCorte').addEventListener('click', async function() {
+    if (!validarGenerarCorte()) return;
 
-            const db = getDatabase();
-            const deudasDb = getDeudasDatabase();
-            const fechaCorte = document.getElementById('deudaFecha').value;
+    const fechaCorte = document.getElementById('deudaFecha').value;
+    const montoMensual = parseFloat(document.getElementById('montoMensual').value);
+    const btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Procesando...';
 
-            // Obtener todas las direcciones únicas de abonos
-            const direccionesUnicas = [...new Set(db.map(abono => abono.direccion.toLowerCase()))];
-
-            // Actualizar deudas para cada dirección
-            const nuevasDeudas = [...deudasDb];
-            
-            direccionesUnicas.forEach(direccion => {
-                // Buscar si ya existe un registro de deuda para esta dirección
-                const index = nuevasDeudas.findIndex(d => d.direccion.toLowerCase() === direccion);
-                const abonoEjemplo = db.find(a => a.direccion.toLowerCase() === direccion);
-                
-                if (index >= 0) {
-                    // Actualizar deuda existente (+180)
-                    nuevasDeudas[index] = {
-                        ...nuevasDeudas[index],
-                        deuda: nuevasDeudas[index].deuda + 180,
-                        ultimoCorte: fechaCorte
-                    };
-                } else {
-                    // Crear nuevo registro de deuda
-                    nuevasDeudas.push({
-                        id: Date.now(),
-                        nombre: abonoEjemplo.nombre,
-                        direccion: abonoEjemplo.direccion,
-                        deuda: 180,
-                        ultimoCorte: fechaCorte,
-                        fechaRegistro: new Date().toISOString()
-                    });
-                }
-            });
-
-            // Guardar cambios
-            saveDeudasDatabase(nuevasDeudas);
-
-            // Limpiar formulario
-            document.getElementById('deudaCodigo').value = '';
-            document.getElementById('deudaFecha').value = '';
-            
-            showMessage('deudaMessage', `Corte generado con éxito. Se agregó $180 a ${direccionesUnicas.length} direcciones.`, 'success');
+    try {
+        // Obtener todos los abonos para identificar direcciones únicas
+        const abonosSnapshot = await dbRef.once('value');
+        const abonos = abonosSnapshot.val() || {};
+        
+        // Obtener todas las deudas existentes
+        const deudasSnapshot = await deudasRef.once('value');
+        const deudas = deudasSnapshot.val() || {};
+        
+        // Identificar direcciones únicas con abonos
+        const direccionesUnicas = new Set();
+        Object.values(abonos).forEach(abono => {
+            if (abono.direccion) {
+                direccionesUnicas.add(abono.direccion.toLowerCase());
+            }
         });
+
+        // Contador para direcciones procesadas
+        let direccionesProcesadas = 0;
+        
+        // Procesar cada dirección única
+        for (const direccion of direccionesUnicas) {
+            // Buscar un abono de ejemplo para obtener el nombre del propietario
+            const abonoEjemplo = Object.values(abonos).find(a => 
+                a.direccion && a.direccion.toLowerCase() === direccion
+            );
+            
+            if (!abonoEjemplo) continue;
+            
+            // Buscar si ya existe una deuda para esta dirección
+            const snapshot = await deudasRef.orderByChild('direccion').equalTo(abonoEjemplo.direccion).once('value');
+            
+            if (snapshot.exists()) {
+                // Actualizar deuda existente
+                const key = Object.keys(snapshot.val())[0];
+                const deudaActual = snapshot.val()[key];
+                const nuevaDeuda = (parseFloat(deudaActual.deuda) || 0) + montoMensual;
+                
+                await deudasRef.child(key).update({
+                    deuda: nuevaDeuda,
+                    ultimoCorte: fechaCorte,
+                    comentario: "Cobro de Mantenimiento",
+                    fechaActualizacion: new Date().toISOString()
+                });
+            } else {
+                // Crear nuevo registro de deuda
+                const nuevaDeuda = {
+                    nombre: abonoEjemplo.nombre,
+                    direccion: abonoEjemplo.direccion,
+                    deuda: montoMensual,
+                    ultimoCorte: fechaCorte,
+                    comentario: "Cobro de Mantenimiento",
+                    fechaRegistro: new Date().toISOString(),
+                    fechaActualizacion: new Date().toISOString()
+                };
+                
+                await deudasRef.push(nuevaDeuda);
+            }
+            
+            direccionesProcesadas++;
+        }
+
+        // Limpiar formulario
+        document.getElementById('deudaCodigo').value = '';
+        document.getElementById('deudaFecha').value = '';
+        
+        showMessage('deudaMessage', `Corte generado con éxito. Se agregó $${montoMensual.toFixed(2)} a ${direccionesProcesadas} direcciones.`, 'success');
+    } catch (error) {
+        console.error('Error al generar corte:', error);
+        showMessage('deudaMessage', 'Error al generar el corte de deudas', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-calculator mr-2"></i> Generar Corte';
+    }
+});
 
         // Cambiar código de acceso
         document.getElementById('btnNuevoCodigo').addEventListener('click', function() {
