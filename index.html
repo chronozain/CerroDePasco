@@ -893,7 +893,7 @@ async function existePropietario(nombre, direccion) {
 }
 
         // Validar formulario de generación de corte
-        function validarGenerarCorte() {
+        async function validarGenerarCorte() {
             let isValid = true;
             const deudaCodigo = document.getElementById('deudaCodigo');
             const deudaFecha = document.getElementById('deudaFecha');
