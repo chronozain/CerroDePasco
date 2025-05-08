@@ -1197,11 +1197,11 @@ document.getElementById('btnConsultar').addEventListener('click', async function
         const abonosArray = Object.entries(abonos).map(([key, value]) => ({ ...value, firebaseKey: key }));
         const deudasArray = Object.entries(deudas).map(([key, value]) => ({ ...value, firebaseKey: key }));
 
-        let resultados = [...abonosArray, ...deudasArray].filter(item => {
-            const matchesNombre = nombre ? item.nombre?.toLowerCase().includes(nombre) : true;
-            const matchesDireccion = direccion ? item.direccion?.toLowerCase().includes(direccion) : true;
-            return matchesNombre && matchesDireccion;
-        });
+let resultados = [...abonosArray, ...deudasArray].filter(item => {
+    const matchesNombre = nombre ? item.nombre?.toLowerCase() === nombre.toLowerCase() : true;
+    const matchesDireccion = direccion ? item.direccion?.toLowerCase() === direccion.toLowerCase() : true;
+    return matchesNombre && matchesDireccion;
+});
 
         const agrupados = {};
 
