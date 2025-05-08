@@ -1,1140 +1,1284 @@
 <!DOCTYPE html>
 <html lang="es">
-  <head>
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administración de Cerro de Pasco </title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-      .fade-in {
-        animation: fadeIn 0.5s ease-in-out;
-      }
-
-      @keyframes fadeIn {
-        from {
-          opacity: 0;
-          transform: translateY(10px);
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
         }
-
-        to {
-          opacity: 1;
-          transform: translateY(0);
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-      }
-
-      .input-error {
-        border-color: #f87171 !important;
-      }
-
-      .error-message {
-        color: #f87171;
-        font-size: 0.875rem;
-        margin-top: 0.25rem;
-      }
-
-      .total-row {
-        background-color: #f0f9ff;
-        font-weight: bold;
-      }
-
-      .deuda-row {
-        background-color: #fff7ed;
-      }
-
-      .deuda-alta {
-        color: #dc2626;
-        font-weight: bold;
-      }
-
-      /* Estilos para el comprobante */
-      @media print {
-        body * {
-          visibility: hidden;
+        .input-error {
+            border-color: #f87171 !important;
         }
-
-        #comprobanteModal,
-        #comprobanteModal * {
-          visibility: visible;
+        .error-message {
+            color: #f87171;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
         }
-
-        #comprobanteModal {
-          position: absolute;
-          left: 0;
-          top: 0;
-          width: 100%;
-          height: 100%;
-          background: white;
-          margin: 0;
-          padding: 20px;
+        .total-row {
+            background-color: #f0f9ff;
+            font-weight: bold;
         }
-
-        #cerrarComprobante,
-        #imprimirComprobante,
-        #compartirComprobante {
-          display: none;
+        .deuda-row {
+            background-color: #fff7ed;
         }
-      }
+        .deuda-alta {
+            color: #dc2626;
+            font-weight: bold;
+        }
+        /* Estilos para el comprobante */
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    #comprobanteModal, #comprobanteModal * {
+        visibility: visible;
+    }
+    #comprobanteModal {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background: white;
+        margin: 0;
+        padding: 20px;
+    }
+    #cerrarComprobante, #imprimirComprobante, #compartirComprobante {
+        display: none;
+    }
+}
     </style>
-  </head>
-  <body class="bg-gray-100 min-h-screen">
+</head>
+<body class="bg-gray-100 min-h-screen">
     <div class="container mx-auto px-4 py-8">
-      <header class="mb-10 text-center">
-        <h1 class="text-4xl font-bold text-indigo-800 mb-2">Administración de Cerro de Pasco</h1>
-        <p class="text-gray-600">Sistema de gestión de propietarios, pagos y deudas</p>
-      </header>
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <!-- Sección de Alta/Eliminación -->
-        <div class="bg-white rounded-lg shadow-lg p-6 fade-in">
-          <div class="flex items-center mb-6">
-            <div class="bg-indigo-100 p-3 rounded-full mr-4">
-              <i class="fas fa-user-plus text-indigo-600 text-xl"></i>
+        <header class="mb-10 text-center">
+            <h1 class="text-4xl font-bold text-indigo-800 mb-2">Administración de Cerro de Pasco</h1>
+            <p class="text-gray-600">Sistema de gestión de propietarios, pagos y deudas</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Sección de Alta/Eliminación -->
+            <div class="bg-white rounded-lg shadow-lg p-6 fade-in">
+                <div class="flex items-center mb-6">
+                    <div class="bg-indigo-100 p-3 rounded-full mr-4">
+                        <i class="fas fa-user-plus text-indigo-600 text-xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-semibold text-gray-800">Registro de Abonos</h2>
+                </div>
+
+                <form id="altaForm" class="space-y-4">
+                    <div>
+                        <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre del Propietario*</label>
+                        <input type="text" id="nombre" name="nombre" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        <div id="nombreError" class="error-message hidden">Ingrese un nombre válido</div>
+                    </div>
+
+                    <div>
+                        <label for="direccion" class="block text-sm font-medium text-gray-700 mb-1">Dirección*</label>
+                        <input type="text" id="direccion" name="direccion" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        <div id="direccionError" class="error-message hidden">Ingrese una dirección válida</div>
+                    </div>
+
+                    <div>
+                        <label for="abono" class="block text-sm font-medium text-gray-700 mb-1">Abono*</label>
+                        <input type="number" id="abono" name="abono" required min="0" step="0.01"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        <div id="abonoError" class="error-message hidden">Ingrese un monto válido</div>
+                    </div>
+
+                    <div>
+                        <label for="fecha" class="block text-sm font-medium text-gray-700 mb-1">Fecha*</label>
+                        <input type="date" id="fecha" name="fecha" required 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                        <div id="fechaError" class="error-message hidden">Seleccione una fecha válida</div>
+                    </div>
+                    <div>
+    <label for="comentario" class="block text-sm font-medium text-gray-700 mb-1">Comentarios</label>
+    <input type="text" id="comentario" name="comentario" maxlength="80"
+           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+           placeholder="Máximo 80 caracteres">
+</div>
+
+                    <div>
+                        <label for="codigo" class="block text-sm font-medium text-gray-700 mb-1">Código de Acceso*</label>
+                        <input type="password" id="codigo" name="codigo" required maxlength="6" pattern="\d{6}"
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                               placeholder="6 dígitos numéricos">
+                        <div id="codigoError" class="error-message hidden">El código debe tener 6 dígitos numéricos</div>
+                    </div>
+
+                    <div class="flex space-x-4 pt-2">
+                        <button type="button" id="btnAlta" 
+                                class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
+                            <i class="fas fa-save mr-2"></i> Registrar Abono
+                        </button>
+                        <button type="button" id="btnEliminar" 
+                                class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
+                            <i class="fas fa-trash-alt mr-2"></i> Eliminar
+                        </button>
+                    </div>
+                </form>
+
+                <div id="altaMessage" class="mt-4 p-3 rounded-md hidden"></div>
             </div>
-            <h2 class="text-2xl font-semibold text-gray-800">Registro de Abonos</h2>
-          </div>
-          <form id="altaForm" class="space-y-4">
-            <div>
-              <label for="nombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre del Propietario*</label>
-              <input type="text" id="nombre" name="nombre" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
-              <div id="nombreError" class="error-message hidden">Ingrese un nombre válido</div>
+
+            <!-- Sección de Consulta -->
+            <div class="bg-white rounded-lg shadow-lg p-6 fade-in">
+                <div class="flex items-center mb-6">
+                    <div class="bg-indigo-100 p-3 rounded-full mr-4">
+                        <i class="fas fa-search text-indigo-600 text-xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-semibold text-gray-800">Consulta de Abonos</h2>
+                </div>
+
+                <form id="consultaForm" class="space-y-4">
+                    <div>
+                        <label for="consultaNombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre del Propietario</label>
+                        <input type="text" id="consultaNombre" name="consultaNombre" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                    </div>
+
+                    <div>
+                        <label for="consultaDireccion" class="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
+                        <input type="text" id="consultaDireccion" name="consultaDireccion" 
+                               class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                    </div>
+
+                    <button type="button" id="btnConsultar" 
+                            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
+                        <i class="fas fa-search mr-2"></i> Consultar
+                    </button>
+                </form>
+
+                <div class="mt-6">
+                    <h3 class="text-lg font-medium text-gray-800 mb-3">Resultados de la consulta</h3>
+                    <div id="resultadosConsulta" class="border border-gray-200 rounded-md p-4 min-h-40">
+                        <p class="text-gray-500 text-center py-8">Ingrese criterios de búsqueda y haga clic en "Consultar"</p>
+                    </div>
+                </div>
             </div>
-            <div>
-              <label for="direccion" class="block text-sm font-medium text-gray-700 mb-1">Dirección*</label>
-              <input type="text" id="direccion" name="direccion" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
-              <div id="direccionError" class="error-message hidden">Ingrese una dirección válida</div>
-            </div>
-            <div>
-              <label for="abono" class="block text-sm font-medium text-gray-700 mb-1">Abono*</label>
-              <input type="number" id="abono" name="abono" required min="0" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
-              <div id="abonoError" class="error-message hidden">Ingrese un monto válido</div>
-            </div>
-            <div>
-              <label for="fecha" class="block text-sm font-medium text-gray-700 mb-1">Fecha*</label>
-              <input type="date" id="fecha" name="fecha" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
-              <div id="fechaError" class="error-message hidden">Seleccione una fecha válida</div>
-            </div>
-            <div>
-              <label for="comentario" class="block text-sm font-medium text-gray-700 mb-1">Comentarios</label>
-              <input type="text" id="comentario" name="comentario" maxlength="80" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="Máximo 80 caracteres">
-            </div>
-            <div>
-              <label for="codigo" class="block text-sm font-medium text-gray-700 mb-1">Código de Acceso*</label>
-              <input type="password" id="codigo" name="codigo" required maxlength="6" pattern="\d{6}" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="6 dígitos numéricos">
-              <div id="codigoError" class="error-message hidden">El código debe tener 6 dígitos numéricos</div>
-            </div>
-            <div class="flex space-x-4 pt-2">
-              <button type="button" id="btnAlta" class="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
-                <i class="fas fa-save mr-2"></i> Registrar Abono </button>
-              <button type="button" id="btnEliminar" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
-                <i class="fas fa-trash-alt mr-2"></i> Eliminar </button>
-            </div>
-          </form>
-          <div id="altaMessage" class="mt-4 p-3 rounded-md hidden"></div>
         </div>
-        <!-- Sección de Consulta -->
-        <div class="bg-white rounded-lg shadow-lg p-6 fade-in">
-          <div class="flex items-center mb-6">
-            <div class="bg-indigo-100 p-3 rounded-full mr-4">
-              <i class="fas fa-search text-indigo-600 text-xl"></i>
+
+        <!-- Sección: Gestión de Deudas -->
+        <div class="mt-8 bg-white rounded-lg shadow-lg p-6 fade-in">
+            <div class="flex items-center mb-6">
+                <div class="bg-orange-100 p-3 rounded-full mr-4">
+                    <i class="fas fa-file-invoice-dollar text-orange-600 text-xl"></i>
+                </div>
+                <h2 class="text-2xl font-semibold text-gray-800">Gestión de Deudas</h2>
             </div>
-            <h2 class="text-2xl font-semibold text-gray-800">Consulta de Abonos</h2>
-          </div>
-          <form id="consultaForm" class="space-y-4">
-            <div>
-              <label for="consultaNombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre del Propietario</label>
-              <input type="text" id="consultaNombre" name="consultaNombre" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
-            </div>
-            <div>
-              <label for="consultaDireccion" class="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
-              <input type="text" id="consultaDireccion" name="consultaDireccion" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
-            </div>
-            <button type="button" id="btnConsultar" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
-              <i class="fas fa-search mr-2"></i> Consultar </button>
-          </form>
-          <div class="mt-6">
-            <h3 class="text-lg font-medium text-gray-800 mb-3">Resultados de la consulta</h3>
-            <div id="resultadosConsulta" class="border border-gray-200 rounded-md p-4 min-h-40">
-              <p class="text-gray-500 text-center py-8">Ingrese criterios de búsqueda y haga clic en "Consultar"</p>
-            </div>
-          </div>
+
+            <form id="deudaForm" class="space-y-4">
+                <div>
+                    <label for="deudaCodigo" class="block text-sm font-medium text-gray-700 mb-1">Código de Acceso*</label>
+                    <input type="password" id="deudaCodigo" name="deudaCodigo" required maxlength="6" pattern="\d{6}"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                           placeholder="6 dígitos numéricos">
+                    <div id="deudaCodigoError" class="error-message hidden">El código debe tener 6 dígitos numéricos</div>
+                </div>
+
+                <div>
+                    <label for="deudaFecha" class="block text-sm font-medium text-gray-700 mb-1">Fecha de Corte*</label>
+                    <input type="date" id="deudaFecha" name="deudaFecha" required 
+                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                    <div id="deudaFechaError" class="error-message hidden">Seleccione una fecha válida</div>
+                </div>
+
+                <button type="button" id="btnGenerarCorte" 
+                        class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
+                    <i class="fas fa-calculator mr-2"></i> Generar Corte
+                </button>
+            </form>
+            <!-- Agregar después del formulario de generación de corte -->
+<div class="mt-8 border-t pt-6">
+    <h3 class="text-lg font-medium text-gray-800 mb-4">Alta Manual de Deuda</h3>
+    
+    <form id="deudaManualForm" class="space-y-4">
+        <div>
+            <label for="deudaManualNombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre del Propietario*</label>
+            <input type="text" id="deudaManualNombre" name="deudaManualNombre" required 
+                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
         </div>
-      </div>
-      <!-- Sección: Gestión de Deudas -->
-      <div class="mt-8 bg-white rounded-lg shadow-lg p-6 fade-in">
-        <div class="flex items-center mb-6">
-          <div class="bg-orange-100 p-3 rounded-full mr-4">
-            <i class="fas fa-file-invoice-dollar text-orange-600 text-xl"></i>
-          </div>
-          <h2 class="text-2xl font-semibold text-gray-800">Gestión de Deudas</h2>
+
+        <div>
+            <label for="deudaManualDireccion" class="block text-sm font-medium text-gray-700 mb-1">Dirección*</label>
+            <input type="text" id="deudaManualDireccion" name="deudaManualDireccion" required 
+                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+            <div id="deudaManualDireccionError" class="error-message hidden">La dirección no existe en registros</div>
         </div>
-        <form id="deudaForm" class="space-y-4">
-          <div>
-            <label for="deudaCodigo" class="block text-sm font-medium text-gray-700 mb-1">Código de Acceso*</label>
-            <input type="password" id="deudaCodigo" name="deudaCodigo" required maxlength="6" pattern="\d{6}" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="6 dígitos numéricos">
-            <div id="deudaCodigoError" class="error-message hidden">El código debe tener 6 dígitos numéricos</div>
-          </div>
-          <div>
-            <label for="deudaFecha" class="block text-sm font-medium text-gray-700 mb-1">Fecha de Corte*</label>
-            <input type="date" id="deudaFecha" name="deudaFecha" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
-            <div id="deudaFechaError" class="error-message hidden">Seleccione una fecha válida</div>
-          </div>
-          <button type="button" id="btnGenerarCorte" class="w-full bg-orange-600 hover:bg-orange-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
-            <i class="fas fa-calculator mr-2"></i> Generar Corte </button>
-        </form>
-        <!-- Agregar después del formulario de generación de corte -->
-        <div class="mt-8 border-t pt-6">
-          <h3 class="text-lg font-medium text-gray-800 mb-4">Alta Manual de Deuda</h3>
-          <form id="deudaManualForm" class="space-y-4">
-            <div>
-              <label for="deudaManualNombre" class="block text-sm font-medium text-gray-700 mb-1">Nombre del Propietario*</label>
-              <input type="text" id="deudaManualNombre" name="deudaManualNombre" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
-            </div>
-            <div>
-              <label for="deudaManualDireccion" class="block text-sm font-medium text-gray-700 mb-1">Dirección*</label>
-              <input type="text" id="deudaManualDireccion" name="deudaManualDireccion" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
-              <div id="deudaManualDireccionError" class="error-message hidden">La dirección no existe en registros</div>
-            </div>
-            <div>
-              <label for="deudaManualMonto" class="block text-sm font-medium text-gray-700 mb-1">Monto de Deuda*</label>
-              <input type="number" id="deudaManualMonto" name="deudaManualMonto" required min="0" step="0.01" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
-            </div>
-            <div>
-              <label for="deudaManualCodigo" class="block text-sm font-medium text-gray-700 mb-1">Código de Acceso*</label>
-              <input type="password" id="deudaManualCodigo" name="deudaManualCodigo" required maxlength="6" pattern="\d{6}" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="6 dígitos numéricos">
-              <div id="deudaManualCodigoError" class="error-message hidden">Código incorrecto</div>
-            </div>
-            <button type="button" id="btnDeudaManual" class="w-full bg-amber-600 hover:bg-amber-700 text-white py-2 px-4 rounded-md transition">
-              <i class="fas fa-hand-holding-usd mr-2"></i> Registrar Deuda Manual </button>
-          </form>
-          <div id="deudaManualMessage" class="mt-4 p-3 rounded-md hidden"></div>
+
+        <div>
+            <label for="deudaManualMonto" class="block text-sm font-medium text-gray-700 mb-1">Monto de Deuda*</label>
+            <input type="number" id="deudaManualMonto" name="deudaManualMonto" required min="0" step="0.01"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
         </div>
-        <div id="deudaMessage" class="mt-4 p-3 rounded-md hidden"></div>
-      </div>
-      <!-- Sección: Administración Código de Acceso -->
-      <div class="mt-8 bg-white rounded-lg shadow-lg p-6 fade-in">
-        <div class="flex items-center mb-6">
-          <div class="bg-indigo-100 p-3 rounded-full mr-4">
-            <i class="fas fa-key text-indigo-600 text-xl"></i>
-          </div>
-          <h2 class="text-2xl font-semibold text-gray-800">Administración Código de Acceso</h2>
+
+        <div>
+            <label for="deudaManualCodigo" class="block text-sm font-medium text-gray-700 mb-1">Código de Acceso*</label>
+            <input type="password" id="deudaManualCodigo" name="deudaManualCodigo" required maxlength="6" pattern="\d{6}"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                   placeholder="6 dígitos numéricos">
+            <div id="deudaManualCodigoError" class="error-message hidden">Código incorrecto</div>
         </div>
-        <form id="codigoForm" class="space-y-4">
-          <div>
-            <label for="adminCodigo" class="block text-sm font-medium text-gray-700 mb-1">Código Administrador*</label>
-            <input type="password" id="adminCodigo" name="adminCodigo" required maxlength="6" pattern="\d{6}" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="6 dígitos numéricos">
-            <div id="adminCodigoError" class="error-message hidden">Código administrador incorrecto</div>
-          </div>
-          <div>
-            <label for="nuevoCodigo" class="block text-sm font-medium text-gray-700 mb-1">Nuevo Código de Acceso*</label>
-            <input type="password" id="nuevoCodigo" name="nuevoCodigo" required maxlength="6" pattern="\d{6}" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="6 dígitos numéricos diferentes al actual">
-            <div id="nuevoCodigoError" class="error-message hidden">El código debe tener 6 dígitos y ser diferente al actual</div>
-          </div>
-          <button type="button" id="btnNuevoCodigo" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
-            <i class="fas fa-key mr-2"></i> Cambiar Código </button>
-        </form>
-        <div id="codigoMessage" class="mt-4 p-3 rounded-md hidden"></div>
-      </div>
-      <!-- Sección: Exportación de Datos -->
-      <div class="mt-8 bg-white rounded-lg shadow-lg p-6 fade-in">
-        <div class="flex items-center mb-6">
-          <div class="bg-green-100 p-3 rounded-full mr-4">
+
+        <button type="button" id="btnDeudaManual" 
+                class="w-full bg-amber-600 hover:bg-amber-700 text-white py-2 px-4 rounded-md transition">
+            <i class="fas fa-hand-holding-usd mr-2"></i> Registrar Deuda Manual
+        </button>
+    </form>
+
+    <div id="deudaManualMessage" class="mt-4 p-3 rounded-md hidden"></div>
+</div>
+            
+
+            <div id="deudaMessage" class="mt-4 p-3 rounded-md hidden"></div>
+        </div>
+
+        <!-- Sección: Administración Código de Acceso -->
+        <div class="mt-8 bg-white rounded-lg shadow-lg p-6 fade-in">
+            <div class="flex items-center mb-6">
+                <div class="bg-indigo-100 p-3 rounded-full mr-4">
+                    <i class="fas fa-key text-indigo-600 text-xl"></i>
+                </div>
+                <h2 class="text-2xl font-semibold text-gray-800">Administración Código de Acceso</h2>
+            </div>
+
+            <form id="codigoForm" class="space-y-4">
+                <div>
+                    <label for="adminCodigo" class="block text-sm font-medium text-gray-700 mb-1">Código Administrador*</label>
+                    <input type="password" id="adminCodigo" name="adminCodigo" required maxlength="6" pattern="\d{6}"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                           placeholder="6 dígitos numéricos">
+                    <div id="adminCodigoError" class="error-message hidden">Código administrador incorrecto</div>
+                </div>
+
+                <div>
+                    <label for="nuevoCodigo" class="block text-sm font-medium text-gray-700 mb-1">Nuevo Código de Acceso*</label>
+                    <input type="password" id="nuevoCodigo" name="nuevoCodigo" required maxlength="6" pattern="\d{6}"
+                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                           placeholder="6 dígitos numéricos diferentes al actual">
+                    <div id="nuevoCodigoError" class="error-message hidden">El código debe tener 6 dígitos y ser diferente al actual</div>
+                </div>
+
+                <button type="button" id="btnNuevoCodigo" 
+                        class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
+                    <i class="fas fa-key mr-2"></i> Cambiar Código
+                </button>
+            </form>
+
+            <div id="codigoMessage" class="mt-4 p-3 rounded-md hidden"></div>
+        </div>
+        <!-- Sección: Exportación de Datos -->
+<div class="mt-8 bg-white rounded-lg shadow-lg p-6 fade-in">
+    <div class="flex items-center mb-6">
+        <div class="bg-green-100 p-3 rounded-full mr-4">
             <i class="fas fa-file-csv text-green-600 text-xl"></i>
-          </div>
-          <h2 class="text-2xl font-semibold text-gray-800">Exportación a CSV</h2>
         </div>
-        <form id="exportacionForm" class="space-y-4">
-          <div>
-            <label for="exportarTipo" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Exportación*</label>
-            <select id="exportarTipo" name="exportarTipo" required class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
-              <option value="">Seleccione una opción</option>
-              <option value="cliente">Por Cliente</option>
-              <option value="todos">Todos los Clientes (últimos 3 meses)</option>
-              <option value="mes">Mes Específico</option>
-              <option value="completo">Exportación Completa (1 año)</option>
-            </select>
-          </div>
-          <div id="exportarClienteGroup" class="hidden">
-            <label for="exportarCliente" class="block text-sm font-medium text-gray-700 mb-1">Dirección*</label>
-            <input type="text" id="exportarCliente" name="exportarCliente" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
-          </div>
-          <div id="exportarMesGroup" class="hidden">
-            <label for="exportarMes" class="block text-sm font-medium text-gray-700 mb-1">Mes*</label>
-            <select id="exportarMes" name="exportarMes" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
-              <option value="">Seleccione un mes</option>
-              <option value="1">Enero</option>
-              <option value="2">Febrero</option>
-              <option value="3">Marzo</option>
-              <option value="4">Abril</option>
-              <option value="5">Mayo</option>
-              <option value="6">Junio</option>
-              <option value="7">Julio</option>
-              <option value="8">Agosto</option>
-              <option value="9">Septiembre</option>
-              <option value="10">Octubre</option>
-              <option value="11">Noviembre</option>
-              <option value="12">Diciembre</option>
-            </select>
-          </div>
-          <div>
-            <label for="exportarCodigo" class="block text-sm font-medium text-gray-700 mb-1">Código de Acceso*</label>
-            <input type="password" id="exportarCodigo" name="exportarCodigo" required maxlength="6" pattern="\d{6}" class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition" placeholder="6 dígitos numéricos">
-            <div id="exportarCodigoError" class="error-message hidden">El código debe tener 6 dígitos numéricos</div>
-          </div>
-          <button type="button" id="btnExportar" class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
-            <i class="fas fa-file-csv mr-2"></i> Exportar a CSV </button>
-        </form>
-        <div id="exportacionMessage" class="mt-4 p-3 rounded-md hidden"></div>
-      </div>
+        <h2 class="text-2xl font-semibold text-gray-800">Exportación a CSV</h2>
     </div>
+
+    <form id="exportacionForm" class="space-y-4">
+        <div>
+            <label for="exportarTipo" class="block text-sm font-medium text-gray-700 mb-1">Tipo de Exportación*</label>
+            <select id="exportarTipo" name="exportarTipo" required
+                    class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                <option value="">Seleccione una opción</option>
+                <option value="cliente">Por Cliente</option>
+                <option value="todos">Todos los Clientes (últimos 3 meses)</option>
+                <option value="mes">Mes Específico</option>
+                <option value="completo">Exportación Completa (1 año)</option>
+            </select>
+        </div>
+
+<div id="exportarClienteGroup" class="hidden">
+    <label for="exportarCliente" class="block text-sm font-medium text-gray-700 mb-1">Dirección*</label>
+    <input type="text" id="exportarCliente" name="exportarCliente"
+           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+</div>
+
+<div id="exportarMesGroup" class="hidden">
+    <label for="exportarMes" class="block text-sm font-medium text-gray-700 mb-1">Mes*</label>
+    <select id="exportarMes" name="exportarMes"
+            class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                <option value="">Seleccione un mes</option>
+                <option value="1">Enero</option>
+                <option value="2">Febrero</option>
+                <option value="3">Marzo</option>
+                <option value="4">Abril</option>
+                <option value="5">Mayo</option>
+                <option value="6">Junio</option>
+                <option value="7">Julio</option>
+                <option value="8">Agosto</option>
+                <option value="9">Septiembre</option>
+                <option value="10">Octubre</option>
+                <option value="11">Noviembre</option>
+                <option value="12">Diciembre</option>
+            </select>
+        </div>
+
+        <div>
+            <label for="exportarCodigo" class="block text-sm font-medium text-gray-700 mb-1">Código de Acceso*</label>
+            <input type="password" id="exportarCodigo" name="exportarCodigo" required maxlength="6" pattern="\d{6}"
+                   class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                   placeholder="6 dígitos numéricos">
+            <div id="exportarCodigoError" class="error-message hidden">El código debe tener 6 dígitos numéricos</div>
+        </div>
+
+        <button type="button" id="btnExportar" 
+                class="w-full bg-green-600 hover:bg-green-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
+            <i class="fas fa-file-csv mr-2"></i> Exportar a CSV
+        </button>
+    </form>
+
+    <div id="exportacionMessage" class="mt-4 p-3 rounded-md hidden"></div>
+</div>
+    </div>
+
     <script>
-      // Base de datos simulada en localStorage
-      const DB_KEY = 'condominio_abonos';
-      const DB_DEUDAS_KEY = 'condominio_deudas';
-      const ADMIN_CODE = '975500';
-      let CODIGO_VALIDACION = localStorage.getItem('codigo_validacion') || '578963';
-      const CODIGO_HISTORY_KEY = 'codigo_history';
-      const firebaseConfig = {
-        apiKey: "AIzaSyAHsb_4DWe8L67VIdt2PI0irqZjQyUp17M",
-        authDomain: "cerrodepasco-a935c.firebaseapp.com",
-        databaseURL: "https://cerrodepasco-a935c-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "cerrodepasco-a935c",
-        storageBucket: "cerrodepasco-a935c.firebasestorage.app",
-        messagingSenderId: "480610541864",
-        appId: "1:480610541864:web:e788b6df3264059d26301d"
-      };
-      // Inicializa Firebase
-      if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-      }
-      const database = firebase.database();
-      const dbRef = database.ref('abonos');
-      const deudasRef = database.ref('deudas');
-      const configRef = database.ref('config');
-      // Inicializar y controlar visibilidad de campos de exportación
-      // Al cargar la página, obtener el código de validación
-      document.addEventListener('DOMContentLoaded', async function() {
+        // Base de datos simulada en localStorage
+        const DB_KEY = 'condominio_abonos';
+        const DB_DEUDAS_KEY = 'condominio_deudas';
+        const ADMIN_CODE = '975500';
+        let CODIGO_VALIDACION = localStorage.getItem('codigo_validacion') || '578963';
+        const CODIGO_HISTORY_KEY = 'codigo_history';
+        const firebaseConfig = { databaseURL: "https://cerrodepasco-a935c-default-rtdb.asia-southeast1.firebasedatabase.app/"    };
+    // Inicializa Firebase
+    const app = firebase.initializeApp(firebaseConfig);
+    const database = firebase.database(app);
+    // Referencias a las bases de datos
+    const dbRef = database.ref('abonos');
+    const deudasRef = database.ref('deudas');
+    const configRef = database.ref('config');
+// Inicializar y controlar visibilidad de campos de exportación
+   // Al cargar la página, obtener el código de validación
+    document.addEventListener('DOMContentLoaded', async function() {
         try {
-          CODIGO_VALIDACION = await getCodigoValidacion();
-          console.log("Código de validación cargado:", CODIGO_VALIDACION);
+            // Obtener código de Firebase o localStorage
+            CODIGO_VALIDACION = await getCodigoValidacion();
+            
+            // Ocultar campos de exportación
+            document.getElementById('exportarClienteGroup').classList.add('hidden');
+            document.getElementById('exportarMesGroup').classList.add('hidden');
+            
+            // Configurar evento para mostrar/ocultar campos
+            document.getElementById('exportarTipo').addEventListener('change', function() {
+                const tipo = this.value;
+                document.getElementById('exportarClienteGroup').classList.toggle('hidden', tipo !== 'cliente');
+                document.getElementById('exportarMesGroup').classList.toggle('hidden', tipo !== 'mes');
+            });
         } catch (error) {
-          console.error('Error al cargar configuración:', error);
-          showMessage('codigoMessage', 'Error al conectar con la base de datos', 'error');
+            console.error('Error al cargar configuración:', error);
+            showMessage('altaMessage', 'Error al conectar con la base de datos', 'error');
         }
-      });
-      // Inicializar base de datos si no existe
-      if (!localStorage.getItem(DB_KEY)) {
-        localStorage.setItem(DB_KEY, JSON.stringify([]));
-      }
-      if (!localStorage.getItem(DB_DEUDAS_KEY)) {
-        localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify([]));
-      }
-      // Obtener todos los abonos NUEVAS FUNCIONES PARA FIREBASE
-      async function getFirebaseAbonos() {
+});
+        // Inicializar base de datos si no existe
+        if (!localStorage.getItem(DB_KEY)) {
+            localStorage.setItem(DB_KEY, JSON.stringify([]));
+        }
+        if (!localStorage.getItem(DB_DEUDAS_KEY)) {
+            localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify([]));
+        }
+// Obtener todos los abonos NUEVAS FUNCIONES PARA FIREBASE
+    async function getFirebaseAbonos() {
         const snapshot = await dbRef.once('value');
         return snapshot.val() || {};
-      }
-      // Guardar un nuevo abono
-      async function saveAbono(nuevoAbono) {
-        try {
-          // Generar ID único
-          const abonoId = Date.now().toString();
-          nuevoAbono.id = abonoId;
-          console.log("Guardando abono:", nuevoAbono);
-          // Guardar en Firebase
-          await dbRef.child(abonoId).set(nuevoAbono);
-          // Guardar también en localStorage como respaldo
-          const localDb = JSON.parse(localStorage.getItem(DB_KEY)) || [];
-          localDb.push(nuevoAbono);
-          localStorage.setItem(DB_KEY, JSON.stringify(localDb));
-          return abonoId;
-        } catch (error) {
-          console.error("Error al guardar abono:", error);
-          throw error;
-        }
-      }
-      // Obtener todas las deudas
-      async function getFirebaseDeudas() {
+    }
+
+    // Guardar un nuevo abono
+    async function saveAbono(nuevoAbono) {
+        const newAbonoRef = dbRef.push();
+        await newAbonoRef.set(nuevoAbono);
+        return newAbonoRef.key; // Retorna el ID generado
+    }
+
+    // Obtener todas las deudas
+    async function getFirebaseDeudas() {
         const snapshot = await deudasRef.once('value');
         return snapshot.val() || {};
-      }
-      // Actualizar o crear una deuda
-      async function saveDeuda(deuda) {
+    }
+
+    // Actualizar o crear una deuda
+    async function saveDeuda(deuda) {
         // Buscar si ya existe una deuda para esta dirección
         const snapshot = await deudasRef.orderByChild('direccion').equalTo(deuda.direccion).once('value');
+        
         if (snapshot.exists()) {
-          // Actualizar deuda existente
-          const key = Object.keys(snapshot.val())[0];
-          await deudasRef.child(key).update(deuda);
+            // Actualizar deuda existente
+            const key = Object.keys(snapshot.val())[0];
+            await deudasRef.child(key).update(deuda);
         } else {
-          // Crear nueva deuda
-          const newDeudaRef = deudasRef.push();
-          await newDeudaRef.set(deuda);
+            // Crear nueva deuda
+            const newDeudaRef = deudasRef.push();
+            await newDeudaRef.set(deuda);
         }
-      }
-      // Obtener el código de validación
-      async function getCodigoValidacion() {
+    }
+
+    // Obtener el código de validación
+    async function getCodigoValidacion() {
         const snapshot = await configRef.child('codigo').once('value');
         // Si no existe en Firebase, usa el valor de localStorage como respaldo
         return snapshot.val() || localStorage.getItem('codigo_validacion') || '578963';
-      }
-      // Actualizar el código de validación
-      async function updateCodigoValidacion(nuevoCodigo) {
+    }
+
+    // Actualizar el código de validación
+    async function updateCodigoValidacion(nuevoCodigo) {
         // Actualizar en Firebase
         await configRef.child('codigo').set(nuevoCodigo);
         // También guardar en localStorage como respaldo
         localStorage.setItem('codigo_validacion', nuevoCodigo);
+        
         // Guardar en el historial
         const historyRef = configRef.child('codigoHistory');
         await historyRef.push().set({
-          oldCode: CODIGO_VALIDACION,
-          newCode: nuevoCodigo,
-          date: new Date().toISOString()
-        });
-      }
-      // Obtener la base de datos de abonos
-      async function getDatabase() {
-        try {
-          const snapshot = await dbRef.once('value');
-          return snapshot.val() || {};
-        } catch (error) {
-          console.error("Error al obtener datos de Firebase:", error);
-          // Usar localStorage como respaldo
-          const localData = JSON.parse(localStorage.getItem(DB_KEY)) || [];
-          // Convertir array local a objeto para consistencia
-          return localData.reduce((acc, item, index) => {
-            acc[index] = item;
-            return acc;
-          }, {});
-        }
-      }
-      // Obtener la base de datos de deudas
-      async function getDeudasDatabase() {
-        // Primero intenta con Firebase, si falla usa localStorage como respaldo
-        try {
-          const firebaseData = await getFirebaseDeudas();
-          if (Object.keys(firebaseData).length > 0) {
-            return firebaseData;
-          }
-          throw new Error('No data in Firebase');
-        } catch (error) {
-          console.log('Usando datos de localStorage como respaldo', error);
-          return JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || {};
-        }
-      }
-      // Guardar la base de datos de abonos
-      function saveDatabase(db) {
-        localStorage.setItem(DB_KEY, JSON.stringify(db));
-      }
-      // Guardar la base de datos de deudas
-      function saveDeudasDatabase(db) {
-        localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(db));
-      }
-      // Validar formulario de alta
-      function validarAlta() {
-        let isValid = true;
-        const nombre = document.getElementById('nombre');
-        const direccion = document.getElementById('direccion');
-        const abono = document.getElementById('abono');
-        const fecha = document.getElementById('fecha');
-        const codigo = document.getElementById('codigo');
-        // Validar nombre
-        if (!nombre.value.trim()) {
-          nombre.classList.add('input-error');
-          document.getElementById('nombreError').classList.remove('hidden');
-          isValid = false;
-        } else {
-          nombre.classList.remove('input-error');
-          document.getElementById('nombreError').classList.add('hidden');
-        }
-        // Validar dirección
-        if (!direccion.value.trim()) {
-          direccion.classList.add('input-error');
-          document.getElementById('direccionError').classList.remove('hidden');
-          isValid = false;
-        } else {
-          direccion.classList.remove('input-error');
-          document.getElementById('direccionError').classList.add('hidden');
-        }
-        // Validar abono
-        if (!abono.value || parseFloat(abono.value) <= 0) {
-          abono.classList.add('input-error');
-          document.getElementById('abonoError').classList.remove('hidden');
-          isValid = false;
-        } else {
-          abono.classList.remove('input-error');
-          document.getElementById('abonoError').classList.add('hidden');
-        }
-        // Validar fecha
-        if (!fecha.value) {
-          fecha.classList.add('input-error');
-          document.getElementById('fechaError').classList.remove('hidden');
-          isValid = false;
-        } else {
-          fecha.classList.remove('input-error');
-          document.getElementById('fechaError').classList.add('hidden');
-        }
-        // Validar código
-        if (codigo.value !== CODIGO_VALIDACION) {
-          codigo.classList.add('input-error');
-          document.getElementById('codigoError').classList.remove('hidden');
-          document.getElementById('codigoError').textContent = 'Código de acceso incorrecto';
-          isValid = false;
-        } else if (!/^\d{6}$/.test(codigo.value)) {
-          codigo.classList.add('input-error');
-          document.getElementById('codigoError').classList.remove('hidden');
-          document.getElementById('codigoError').textContent = 'El código debe tener 6 dígitos numéricos';
-          isValid = false;
-        } else {
-          codigo.classList.remove('input-error');
-          document.getElementById('codigoError').classList.add('hidden');
-        }
-        return isValid;
-      }
-      // Validar formulario de generación de corte
-      function validarGenerarCorte() {
-        let isValid = true;
-        const deudaCodigo = document.getElementById('deudaCodigo');
-        const deudaFecha = document.getElementById('deudaFecha');
-        // Validar código
-        if (deudaCodigo.value !== CODIGO_VALIDACION) {
-          deudaCodigo.classList.add('input-error');
-          document.getElementById('deudaCodigoError').classList.remove('hidden');
-          document.getElementById('deudaCodigoError').textContent = 'Código de acceso incorrecto';
-          isValid = false;
-        } else if (!/^\d{6}$/.test(deudaCodigo.value)) {
-          deudaCodigo.classList.add('input-error');
-          document.getElementById('deudaCodigoError').classList.remove('hidden');
-          document.getElementById('deudaCodigoError').textContent = 'El código debe tener 6 dígitos numéricos';
-          isValid = false;
-        } else {
-          deudaCodigo.classList.remove('input-error');
-          document.getElementById('deudaCodigoError').classList.add('hidden');
-        }
-        // Validar fecha
-        if (!deudaFecha.value) {
-          deudaFecha.classList.add('input-error');
-          document.getElementById('deudaFechaError').classList.remove('hidden');
-          isValid = false;
-        } else {
-          deudaFecha.classList.remove('input-error');
-          document.getElementById('deudaFechaError').classList.add('hidden');
-        }
-        return isValid;
-      }
-      // Validar formulario de cambio de código
-      function validarCambioCodigo() {
-        let isValid = true;
-        const adminCodigo = document.getElementById('adminCodigo');
-        const nuevoCodigo = document.getElementById('nuevoCodigo');
-        // Validar código administrador (fijo)
-        if (adminCodigo.value !== ADMIN_CODE) {
-          adminCodigo.classList.add('input-error');
-          document.getElementById('adminCodigoError').classList.remove('hidden');
-          isValid = false;
-        } else {
-          adminCodigo.classList.remove('input-error');
-          document.getElementById('adminCodigoError').classList.add('hidden');
-        }
-        // Validar nuevo código
-        if (!/^\d{6}$/.test(nuevoCodigo.value)) {
-          nuevoCodigo.classList.add('input-error');
-          document.getElementById('nuevoCodigoError').classList.remove('hidden');
-          document.getElementById('nuevoCodigoError').textContent = 'El código debe tener 6 dígitos numéricos';
-          isValid = false;
-        } else if (nuevoCodigo.value === CODIGO_VALIDACION) {
-          nuevoCodigo.classList.add('input-error');
-          document.getElementById('nuevoCodigoError').classList.remove('hidden');
-          document.getElementById('nuevoCodigoError').textContent = 'El nuevo código debe ser diferente al actual';
-          isValid = false;
-        } else {
-          nuevoCodigo.classList.remove('input-error');
-          document.getElementById('nuevoCodigoError').classList.add('hidden');
-        }
-        return isValid;
-      }
-      // Cambiar código de acceso
-      document.getElementById('btnNuevoCodigo').addEventListener('click', async function() {
-        if (!validarCambioCodigo()) return;
-        const nuevoCodigo = document.getElementById('nuevoCodigo').value;
-        try {
-          // Actualizar código en Firebase
-          await updateCodigoValidacion(nuevoCodigo);
-          // Actualizar variable local
-          CODIGO_VALIDACION = nuevoCodigo;
-          // Limpiar formulario
-          document.getElementById('codigoForm').reset();
-          showMessage('codigoMessage', 'Código de acceso actualizado con éxito', 'success');
-        } catch (error) {
-          console.error('Error al actualizar código:', error);
-          showMessage('codigoMessage', 'Error al actualizar el código', 'error');
-        }
-      });
-      // Función para obtener el código de validación desde Firebase
-      async function getCodigoValidacion() {
-        try {
-          const snapshot = await configRef.child('codigo').once('value');
-          // Si no existe en Firebase, usa el valor de localStorage como respaldo
-          return snapshot.val() || localStorage.getItem('codigo_validacion') || '578963';
-        } catch (error) {
-          console.error("Error al obtener código de Firebase:", error);
-          return localStorage.getItem('codigo_validacion') || '578963';
-        }
-      }
-      // Función para actualizar el código de validación en Firebase y localStorage
-      async function updateCodigoValidacion(nuevoCodigo) {
-        try {
-          // Guardar en Firebase
-          await configRef.child('codigo').set(nuevoCodigo);
-          // Guardar en localStorage como respaldo
-          localStorage.setItem('codigo_validacion', nuevoCodigo);
-          // Guardar en el historial
-          const historyRef = configRef.child('codigoHistory');
-          await historyRef.push().set({
             oldCode: CODIGO_VALIDACION,
             newCode: nuevoCodigo,
             date: new Date().toISOString()
-          });
-          console.log("Código actualizado en Firebase y localStorage");
-        } catch (error) {
-          console.error("Error al actualizar código:", error);
-          throw error; // Re-lanzar el error para manejarlo en el llamador
-        }
-      }
-      // Actualizar deuda: restar el abono a la deuda correspondiente
-      let deudaEncontrada = false;
-      const nuevasDeudas = deudasDb.map(deuda => {
-        if (deuda.direccion.toLowerCase() === direccion.toLowerCase()) {
-          deudaEncontrada = true;
-          return {
-            ...deuda,
-            deuda: Math.max(0, deuda.deuda - abono),
-            ultimoAbono: fecha,
-            ultimoAbonoMonto: abono
-          };
-        }
-        return deuda;
-      });
-      if (!deudaEncontrada) {
-        // Si no existe deuda para esta dirección, no hacemos nada (o podríamos crear un registro con deuda 0)
-      } else {
-        saveDeudasDatabase(nuevasDeudas);
-      }
-      // Limpiar formulario (excepto nombre y dirección para facilitar múltiples abonos)
-      document.getElementById('abono').value = '';
-      document.getElementById('fecha').value = '';
-      document.getElementById('codigo').value = '';
-      mostrarComprobante(nuevoAbono); // Muestra el comprobante
-      showMessage('altaMessage', 'Abono registrado con éxito', 'success');
-      // Eliminar abonos específicos (nombre, dirección, monto y fecha)
-      document.getElementById('btnEliminar').addEventListener('click', async function() {
-        if (!validarAlta()) return;
-        const nombre = document.getElementById('nombre').value.trim();
-        const direccion = document.getElementById('direccion').value.trim();
-        const abono = parseFloat(document.getElementById('abono').value);
-        const fecha = document.getElementById('fecha').value;
-        try {
-          // Buscar y eliminar de Firebase
-          const snapshot = await dbRef.once('value');
-          const abonos = snapshot.val() || {};
-          let encontrado = false;
-          for (const key in abonos) {
-            const item = abonos[key];
-            if (item.nombre === nombre && item.direccion === direccion && item.abono === abono && item.fecha === fecha) {
-              await dbRef.child(key).remove();
-              encontrado = true;
-              break;
-            }
-          }
-          if (!encontrado) {
-            showMessage('altaMessage', 'No se encontró el abono especificado para eliminar', 'error');
-            return;
-          }
-          // Limpiar formulario
-          document.getElementById('abono').value = '';
-          document.getElementById('fecha').value = '';
-          document.getElementById('codigo').value = '';
-          showMessage('altaMessage', 'Abono eliminado con éxito', 'success');
-        } catch (error) {
-          console.error('Error al eliminar:', error);
-          showMessage('altaMessage', 'Error al eliminar el abono', 'error');
-        }
-      });
-      // Consultar abonos
-document.getElementById('btnConsultar').addEventListener('click', async function() {
-    try {
-        // 1. Obtener datos de Firebase y localStorage
-        const db = await getDatabase();
-        const deudasDb = await getDeudasDatabase();
-
-        // 2. Obtener valores de búsqueda
-        const nombre = document.getElementById('consultaNombre').value.trim().toLowerCase();
-        const direccion = document.getElementById('consultaDireccion').value.trim().toLowerCase();
-
-        // 3. Convertir datos de Firebase en arrays
-        const abonosArray = db ? Object.values(db) : [];
-        const deudasArray = deudasDb ? Object.values(deudasDb) : [];
-
-        // 4. Filtrar resultados según búsqueda
-        let resultados = abonosArray;
-        if (nombre) {
-            resultados = resultados.filter(abono => abono.nombre && abono.nombre.toLowerCase().includes(nombre));
-        }
-        if (direccion) {
-            resultados = resultados.filter(abono => abono.direccion && abono.direccion.toLowerCase().includes(direccion));
-        }
-              // Agrupar por dirección para calcular totales
-              const agrupados = {};
-              resultados.forEach(abono => {
-                const key = `${abono.nombre}|${abono.direccion}`;
-                if (!agrupados[key]) {
-                  agrupados[key] = {
-                    nombre: abono.nombre,
-                    direccion: abono.direccion,
-                    abonos: [],
-                    totalAbonos: 0,
-                    deuda: 0
-                  };
-                  // Buscar deuda correspondiente
-                  const deudaRegistro = Object.values(deudasDb).find(d => d.direccion && d.direccion.toLowerCase() === abono.direccion.toLowerCase());
-                  if (deudaRegistro) {
-                    agrupados[key].deuda = deudaRegistro.deuda || 0;
-                  }
-                }
-                agrupados[key].abonos.push(abono);
-                agrupados[key].totalAbonos += abono.abono;
-              });
-              // Mostrar resultados
-        const resultadosDiv = document.getElementById('resultadosConsulta');
-        if (resultados.length === 0) {
-            resultadosDiv.innerHTML = '<p class="text-gray-500 text-center py-8">No se encontraron resultados</p>';
-            return;
-              }
-              let html = ' < div class = "overflow-x-auto" > < table class = "min-w-full divide-y divide-gray-200" > ';
-              html += ' < thead class = "bg-gray-50" > < tr > ';
-              html += ' < th class = "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" > Nombre < /th>';
-              html += ' < th class = "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" > Dirección < /th>';
-              html += ' < th class = "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" > Abono < /th>';
-              html += ' < th class = "px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider" > Fecha < /th>';
-              html += ' < /tr> < /thead> < tbody class = "bg-white divide-y divide-gray-200" > ';
-              // Mostrar cada abono agrupado por dirección
-              Object.values(agrupados).forEach(grupo => {
-                // Mostrar cada abono individual
-resultados.forEach(abono => {
-            html += `
-                <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${abono.nombre}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${abono.direccion}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${abono.abono.toFixed(2)}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${abono.fecha}</td>
-                </tr>
-            `;
         });
-              html += ' < /tbody> < /table> < /div>';
-              resultadosDiv.innerHTML = html;
-		      } catch (error) {
-        console.error('Error en consulta:', error);
-        document.getElementById('resultadosConsulta').innerHTML = '<p class="text-red-500">Error al realizar la consulta</p>';
     }
-});
-          // Generar corte de deudas
-          document.getElementById('btnGenerarCorte').addEventListener('click', async function() {
-            if (!validarGenerarCorte()) return;
-            try {
-              const db = await getDatabase();
-              const abonosArray = db ? Object.values(db) : [];
-              const fechaCorte = document.getElementById('deudaFecha').value;
-              // Obtener todas las direcciones únicas de abonos
-              const direccionesUnicas = [...new Set(abonosArray.map(abono => abono.direccion.toLowerCase()))];
-              // Actualizar deudas para cada dirección
-              for (const direccion of direccionesUnicas) {
-                // Buscar si ya existe un registro de deuda para esta dirección
-                const snapshot = await deudasRef.orderByChild('direccion').equalTo(direccion).once('value');
-                const abonoEjemplo = abonosArray.find(a => a.direccion.toLowerCase() === direccion);
-                if (snapshot.exists()) {
-                  // Actualizar deuda existente (+180)
-                  const key = Object.keys(snapshot.val())[0];
-                  const deudaActual = snapshot.val()[key];
-                  await deudasRef.child(key).update({
-                    deuda: deudaActual.deuda + 180,
-                    ultimoCorte: fechaCorte
-                  });
-                } else {
-                  // Crear nuevo registro de deuda
-                  await deudasRef.push({
-                    nombre: abonoEjemplo.nombre,
-                    direccion: abonoEjemplo.direccion,
-                    deuda: 180,
-                    ultimoCorte: fechaCorte,
-                    fechaRegistro: new Date().toISOString()
-                  });
-                }
-              }
-              // Limpiar formulario
-              document.getElementById('deudaCodigo').value = '';
-              document.getElementById('deudaFecha').value = '';
-              showMessage('deudaMessage', `Corte generado con éxito. Se agregó $180 a ${direccionesUnicas.length} direcciones.`, 'success');
-            } catch (error) {
-              console.error('Error al generar corte:', error);
-              showMessage('deudaMessage', 'Error al generar el corte de deudas', 'error');
+        // Obtener la base de datos de abonos
+async function getDatabase() {
+    try {
+        const snapshot = await dbRef.once('value');
+        return snapshot.val() || {};
+    } catch (error) {
+        console.error("Error al obtener datos de Firebase:", error);
+        // Usar localStorage como respaldo
+        return JSON.parse(localStorage.getItem(DB_KEY)) || {};
+    }
+}
+
+        // Obtener la base de datos de deudas
+        async function getDeudasDatabase() {
+        // Primero intenta con Firebase, si falla usa localStorage como respaldo
+        try {
+            const firebaseData = await getFirebaseDeudas();
+            if (Object.keys(firebaseData).length > 0) {
+                return firebaseData;
             }
-          });
-          // Cambiar código de acceso
-          document.getElementById('btnNuevoCodigo').addEventListener('click', function() {
-            if (!validarCambioCodigo()) return;
-            const nuevoCodigo = document.getElementById('nuevoCodigo').value;
-            // Actualizar código de validación
-            CODIGO_VALIDACION = nuevoCodigo;
-            localStorage.setItem('codigo_validacion', nuevoCodigo);
-            // Limpiar formulario
-            document.getElementById('codigoForm').reset();
-            showMessage('codigoMessage', 'Código de acceso actualizado con éxito', 'success');
-          });
-          // Mostrar mensajes
-          function showMessage(elementId, message, type) {
-            const element = document.getElementById(elementId);
-            element.classList.remove('hidden');
-            element.textContent = message;
-            // Estilos según tipo
-            if (type === 'success') {
-              element.classList.remove('bg-red-100', 'text-red-700');
-              element.classList.add('bg-green-100', 'text-green-700');
+            throw new Error('No data in Firebase');
+        } catch (error) {
+            console.log('Usando datos de localStorage como respaldo', error);
+            return JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || {};
+        }
+    }
+
+        // Guardar la base de datos de abonos
+        function saveDatabase(db) {
+            localStorage.setItem(DB_KEY, JSON.stringify(db));
+        }
+
+        // Guardar la base de datos de deudas
+        function saveDeudasDatabase(db) {
+            localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(db));
+        }
+
+        // Validar formulario de alta
+        function validarAlta() {
+            let isValid = true;
+            const nombre = document.getElementById('nombre');
+            const direccion = document.getElementById('direccion');
+            const abono = document.getElementById('abono');
+            const fecha = document.getElementById('fecha');
+            const codigo = document.getElementById('codigo');
+
+            // Validar nombre
+            if (!nombre.value.trim()) {
+                nombre.classList.add('input-error');
+                document.getElementById('nombreError').classList.remove('hidden');
+                isValid = false;
             } else {
-              element.classList.remove('bg-green-100', 'text-green-700');
-              element.classList.add('bg-red-100', 'text-red-700');
+                nombre.classList.remove('input-error');
+                document.getElementById('nombreError').classList.add('hidden');
             }
-            // Ocultar después de 5 segundos
-            setTimeout(() => {
-              element.classList.add('hidden');
-            }, 5000);
-          }
-          // Formatear fecha para mostrar
-          function formatDate(dateString) {
-            // Si ya está en formato YYYY-MM-DD, devolverlo tal cual
-            if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
-              return dateString;
-            }
-            // Si no, convertirla (esto es por compatibilidad con datos existentes)
-            const date = new Date(dateString);
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-          }
-          // Formatear campos numéricos
-          document.getElementById('abono').addEventListener('blur', function(e) {
-            if (e.target.value) {
-              e.target.value = parseFloat(e.target.value).toFixed(2);
-            }
-          });
-          // Validar dirección existe
-          async function validarDireccionExiste(nombre, direccion) {
-            try {
-              const db = await getDatabase();
-              const abonosArray = db ? Object.values(db) : [];
-              return abonosArray.some(abono => abono.direccion.toLowerCase() === direccion.toLowerCase() && abono.nombre.toLowerCase() === nombre.toLowerCase());
-            } catch (error) {
-              console.error("Error al validar dirección:", error);
-              return false;
-            }
-          }
-          // Alta manual de deuda
-          document.getElementById('btnDeudaManual').addEventListener('click', async function() {
-            const nombre = document.getElementById('deudaManualNombre').value.trim();
-            const direccion = document.getElementById('deudaManualDireccion').value.trim();
-            const monto = parseFloat(document.getElementById('deudaManualMonto').value);
-            const codigo = document.getElementById('deudaManualCodigo').value;
-            // Validaciones
-            if (codigo !== CODIGO_VALIDACION) {
-              document.getElementById('deudaManualCodigo').classList.add('input-error');
-              document.getElementById('deudaManualCodigoError').classList.remove('hidden');
-              return;
-            }
-            if (!await validarDireccionExiste(nombre, direccion)) {
-              document.getElementById('deudaManualDireccion').classList.add('input-error');
-              document.getElementById('deudaManualDireccionError').textContent = 'La dirección no coincide con ningún propietario registrado';
-              document.getElementById('deudaManualDireccionError').classList.remove('hidden');
-              return;
-            }
-            try {
-              // Registrar deuda en Firebase
-              const nuevaDeuda = {
-                nombre,
-                direccion,
-                deuda: monto,
-                fechaRegistro: new Date().toISOString(),
-                esManual: true
-              };
-              await saveDeuda(nuevaDeuda);
-              // Registrar deuda en local
-              const deudasDb = await getDeudasDatabase();
-              const deudasArray = deudasDb ? Object.values(deudasDb) : [];
-              const index = deudasArray.findIndex(d => d.direccion.toLowerCase() === direccion.toLowerCase());
-              if (index >= 0) {
-                // Actualizar deuda existente
-                const updatedDeuda = {
-                  ...deudasArray[index],
-                  deuda: deudasArray[index].deuda + monto
-                };
-                await saveDeuda(updatedDeuda);
-              } else {
-                // Crear nueva deuda
-                await saveDeuda(nuevaDeuda);
-              }
-              // Limpiar formulario
-              document.getElementById('deudaManualForm').reset();
-              showMessage('deudaManualMessage', 'Deuda manual registrada con éxito', 'success');
-            } catch (error) {
-              console.error('Error al registrar deuda manual:', error);
-              showMessage('deudaManualMessage', 'Error al registrar la deuda manual', 'error');
-            }
-          });
 
-          function generarNumeroComprobante() {
-            const ahora = new Date();
-            const dia = String(ahora.getDate()).padStart(2, '0');
-            const mes = String(ahora.getMonth() + 1).padStart(2, '0');
-            const año = ahora.getFullYear();
-            const horas = String(ahora.getHours()).padStart(2, '0');
-            const minutos = String(ahora.getMinutes()).padStart(2, '0');
-            const segundos = String(ahora.getSeconds()).padStart(2, '0');
-            return `${dia}${mes}${año}${horas}${minutos}${segundos}`;
-          }
-          // Mostrar comprobante después de registrar abono
-          function mostrarComprobante(abono) {
-            document.getElementById('comprobanteNumero').textContent = generarNumeroComprobante();
-            document.getElementById('comprobanteFecha').textContent = formatDate(abono.fecha);
-            document.getElementById('comprobanteNombre').textContent = abono.nombre;
-            document.getElementById('comprobanteDireccion').textContent = abono.direccion;
-            document.getElementById('comprobanteComentario').textContent = abono.comentario || 'Sin comentario';
-            document.getElementById('comprobanteMonto').textContent = `$${abono.abono.toFixed(2)}`;
-            const modal = document.getElementById('comprobanteModal');
-            modal.classList.remove('hidden');
-            // Configurar botones
-            document.getElementById('cerrarComprobante').addEventListener('click', () => {
-              modal.classList.add('hidden');
-            });
-            document.getElementById('imprimirComprobante').addEventListener('click', () => {
-              window.print();
-            });
-            document.getElementById('compartirComprobante').addEventListener('click', () => {
-              const texto = `Comprobante de Pago\n\n` + `N°: ${abono.id}\n` + `Fecha: ${formatDate(abono.fecha)}\n` + `Propietario: ${abono.nombre}\n` + `Dirección: ${abono.direccion}\n` + `Monto: $${abono.abono.toFixed(2)}\n\n` + `Gracias por su pago.`;
-              if (navigator.share) {
-                navigator.share({
-                  title: 'Comprobante de Pago',
-                  text: texto
-                }).catch(err => {
-                  console.log('Error al compartir:', err);
-                  copiarAlPortapapeles(texto);
-                });
-              } else {
-                copiarAlPortapapeles(texto);
-              }
-            });
-          }
+            // Validar dirección
+            if (!direccion.value.trim()) {
+                direccion.classList.add('input-error');
+                document.getElementById('direccionError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                direccion.classList.remove('input-error');
+                document.getElementById('direccionError').classList.add('hidden');
+            }
 
-          function copiarAlPortapapeles(texto) {
-            navigator.clipboard.writeText(texto).then(() => {
-              alert('Comprobante copiado al portapapeles');
-            }).catch(err => {
-              console.error('Error al copiar:', err);
-              prompt('Copie este texto:', texto);
-            });
-          }
-          // Modificar el evento btnAlta para mostrar comprobante
-          // Registrar un nuevo abono - Versión modificada para Firebase
-          document.getElementById('btnAlta').addEventListener('click', async function() {
+            // Validar abono
+            if (!abono.value || parseFloat(abono.value) <= 0) {
+                abono.classList.add('input-error');
+                document.getElementById('abonoError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                abono.classList.remove('input-error');
+                document.getElementById('abonoError').classList.add('hidden');
+            }
+
+            // Validar fecha
+            if (!fecha.value) {
+                fecha.classList.add('input-error');
+                document.getElementById('fechaError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                fecha.classList.remove('input-error');
+                document.getElementById('fechaError').classList.add('hidden');
+            }
+
+            // Validar código
+            if (codigo.value !== CODIGO_VALIDACION) {
+                codigo.classList.add('input-error');
+                document.getElementById('codigoError').classList.remove('hidden');
+                document.getElementById('codigoError').textContent = 'Código de acceso incorrecto';
+                isValid = false;
+            } else if (!/^\d{6}$/.test(codigo.value)) {
+                codigo.classList.add('input-error');
+                document.getElementById('codigoError').classList.remove('hidden');
+                document.getElementById('codigoError').textContent = 'El código debe tener 6 dígitos numéricos';
+                isValid = false;
+            } else {
+                codigo.classList.remove('input-error');
+                document.getElementById('codigoError').classList.add('hidden');
+            }
+
+            return isValid;
+        }
+
+        // Validar formulario de generación de corte
+        function validarGenerarCorte() {
+            let isValid = true;
+            const deudaCodigo = document.getElementById('deudaCodigo');
+            const deudaFecha = document.getElementById('deudaFecha');
+
+            // Validar código
+            if (deudaCodigo.value !== CODIGO_VALIDACION) {
+                deudaCodigo.classList.add('input-error');
+                document.getElementById('deudaCodigoError').classList.remove('hidden');
+                document.getElementById('deudaCodigoError').textContent = 'Código de acceso incorrecto';
+                isValid = false;
+            } else if (!/^\d{6}$/.test(deudaCodigo.value)) {
+                deudaCodigo.classList.add('input-error');
+                document.getElementById('deudaCodigoError').classList.remove('hidden');
+                document.getElementById('deudaCodigoError').textContent = 'El código debe tener 6 dígitos numéricos';
+                isValid = false;
+            } else {
+                deudaCodigo.classList.remove('input-error');
+                document.getElementById('deudaCodigoError').classList.add('hidden');
+            }
+
+            // Validar fecha
+            if (!deudaFecha.value) {
+                deudaFecha.classList.add('input-error');
+                document.getElementById('deudaFechaError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                deudaFecha.classList.remove('input-error');
+                document.getElementById('deudaFechaError').classList.add('hidden');
+            }
+
+            return isValid;
+        }
+
+        // Validar formulario de cambio de código
+        function validarCambioCodigo() {
+            let isValid = true;
+            const adminCodigo = document.getElementById('adminCodigo');
+            const nuevoCodigo = document.getElementById('nuevoCodigo');
+            const history = JSON.parse(localStorage.getItem(CODIGO_HISTORY_KEY)) || [];
+history.push({
+    oldCode: CODIGO_VALIDACION,
+    newCode: nuevoCodigo.value,
+    date: new Date().toISOString()
+});
+localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
+
+            // Validar código administrador
+            if (adminCodigo.value !== ADMIN_CODE) {
+                adminCodigo.classList.add('input-error');
+                document.getElementById('adminCodigoError').classList.remove('hidden');
+                isValid = false;
+            } else {
+                adminCodigo.classList.remove('input-error');
+                document.getElementById('adminCodigoError').classList.add('hidden');
+            }
+
+            // Validar nuevo código
+            if (!/^\d{6}$/.test(nuevoCodigo.value)) {
+                nuevoCodigo.classList.add('input-error');
+                document.getElementById('nuevoCodigoError').classList.remove('hidden');
+                document.getElementById('nuevoCodigoError').textContent = 'El código debe tener 6 dígitos numéricos';
+                isValid = false;
+            } else if (nuevoCodigo.value === CODIGO_VALIDACION) {
+                nuevoCodigo.classList.add('input-error');
+                document.getElementById('nuevoCodigoError').classList.remove('hidden');
+                document.getElementById('nuevoCodigoError').textContent = 'El nuevo código debe ser diferente al actual';
+                isValid = false;
+            } else {
+                nuevoCodigo.classList.remove('input-error');
+                document.getElementById('nuevoCodigoError').classList.add('hidden');
+            }
+
+            return isValid;
+        }
+
+        // Registrar un nuevo abono
+        document.getElementById('btnAlta').addEventListener('click', function() {
             if (!validarAlta()) return;
+
+            const db = getDatabase();
+            const deudasDb = getDeudasDatabase();
             const nombre = document.getElementById('nombre').value.trim();
             const direccion = document.getElementById('direccion').value.trim();
             const abono = parseFloat(document.getElementById('abono').value);
             const fecha = document.getElementById('fecha').value;
-            const comentario = document.getElementById('comentario').value.trim();
+
             // Crear nuevo registro de abono
             const nuevoAbono = {
-              nombre,
-              direccion,
-              abono,
-              fecha,
-              comentario,
-              fechaRegistro: new Date().toISOString()
+                id: generarNumeroComprobante(),
+                nombre,
+                direccion,
+                abono,
+                fecha,
+                comentario: document.getElementById('comentario').value.trim(), // Nuevo campo
+                fechaRegistro: new Date().toISOString()
             };
-            try {
-              // Guardar en Firebase
-              const abonoId = await saveAbono(nuevoAbono);
-              nuevoAbono.id = abonoId; // Agregar el ID generado
-              // Guardar también en localStorage como respaldo
-              const localDb = JSON.parse(localStorage.getItem(DB_KEY)) || [];
-              localDb.push(nuevoAbono);
-              localStorage.setItem(DB_KEY, JSON.stringify(localDb));
-              // Actualizar deuda
-              const deudasDb = await getDeudasDatabase();
-              let deudaEncontrada = false;
-              for (const key in deudasDb) {
-                if (deudasDb[key].direccion.toLowerCase() === direccion.toLowerCase()) {
-                  deudaEncontrada = true;
-                  const updatedDeuda = {
-                    ...deudasDb[key],
-                    deuda: Math.max(0, deudasDb[key].deuda - abono),
-                    ultimoAbono: fecha,
-                    ultimoAbonoMonto: abono
-                  };
-                  await saveDeuda(updatedDeuda);
-                  // Actualizar también en localStorage
-                  const localDeudas = JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || [];
-                  const updatedLocalDeudas = localDeudas.map(d => d.direccion.toLowerCase() === direccion.toLowerCase() ? updatedDeuda : d);
-                  localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(updatedLocalDeudas));
-                  break;
+
+            db.push(nuevoAbono);
+            saveDatabase(db);
+
+            // Actualizar deuda: restar el abono a la deuda correspondiente
+            let deudaEncontrada = false;
+            const nuevasDeudas = deudasDb.map(deuda => {
+                if (deuda.direccion.toLowerCase() === direccion.toLowerCase()) {
+                    deudaEncontrada = true;
+                    return {
+                        ...deuda,
+                        deuda: Math.max(0, deuda.deuda - abono),
+                        ultimoAbono: fecha,
+                        ultimoAbonoMonto: abono
+                    };
                 }
-              }
-              // Limpiar formulario
-              document.getElementById('abono').value = '';
-              document.getElementById('fecha').value = '';
-              document.getElementById('codigo').value = '';
-              mostrarComprobante(nuevoAbono);
-              showMessage('altaMessage', 'Abono registrado con éxito', 'success');
-            } catch (error) {
-              console.error('Error al guardar:', error);
-              showMessage('altaMessage', 'Error al registrar el abono. Usando almacenamiento local.', 'error');
+                return deuda;
+            });
+
+            if (!deudaEncontrada) {
+                // Si no existe deuda para esta dirección, no hacemos nada (o podríamos crear un registro con deuda 0)
+            } else {
+                saveDeudasDatabase(nuevasDeudas);
             }
-          });
-          // Mostrar/ocultar campos según tipo de exportación
-          document.getElementById('exportarTipo').addEventListener('change', function() {
-            const tipo = this.value;
-            document.getElementById('exportarClienteGroup').classList.toggle('hidden', tipo !== 'cliente');
-            document.getElementById('exportarMesGroup').classList.toggle('hidden', tipo !== 'mes');
-          });
-          // Función para exportar datos
-          document.getElementById('btnExportar').addEventListener('click', async function() {
-            try {
-              const tipo = document.getElementById('exportarTipo').value;
-              const codigo = document.getElementById('exportarCodigo').value;
-              if (codigo !== CODIGO_VALIDACION) {
-                document.getElementById('exportarCodigo').classList.add('input-error');
-                document.getElementById('exportarCodigoError').textContent = 'Código de acceso incorrecto';
-                document.getElementById('exportarCodigoError').classList.remove('hidden');
-                return;
-              }
-              const [db, deudasDb] = await Promise.all([
-                getDatabase(),
-                getDeudasDatabase()
-              ]);
-              const abonosArray = db ? Object.values(db) : [];
-              const deudasArray = deudasDb ? Object.values(deudasDb) : [];
-              const ahora = new Date();
-              const deudasPorDireccion = {};
-              deudasArray.forEach(deuda => {
-                deudasPorDireccion[deuda.direccion.toLowerCase()] = deuda.deuda;
-              });
-              let datosFiltrados = [];
-              const tresMesesAtras = new Date(ahora.setMonth(ahora.getMonth() - 3));
-              const unAnioAtras = new Date(ahora.setFullYear(ahora.getFullYear() - 1));
-              switch (tipo) {
-                case 'cliente':
-                  const direccion = document.getElementById('exportarCliente').value.trim().toLowerCase();
-                  if (!direccion) {
-                    showMessage('exportacionMessage', 'Ingrese una dirección', 'error');
-                    return;
-                  }
-                  datosFiltrados = abonosArray.filter(abono => abono.direccion.toLowerCase().includes(direccion) && new Date(abono.fecha) >= tresMesesAtras);
-                  break;
-                case 'todos':
-                  datosFiltrados = abonosArray.filter(abono => new Date(abono.fecha) >= tresMesesAtras);
-                  break;
-                case 'mes':
-                  const mes = parseInt(document.getElementById('exportarMes').value);
-                  const añoActual = new Date().getFullYear();
-                  datosFiltrados = abonosArray.filter(abono => new Date(abono.fecha).getMonth() + 1 === mes && new Date(abono.fecha).getFullYear() === añoActual);
-                  break;
-                case 'completo':
-                  datosFiltrados = abonosArray.filter(abono => new Date(abono.fecha) >= unAnioAtras);
-                  break;
-                default:
-                  showMessage('exportacionMessage', 'Seleccione un tipo de exportación', 'error');
-                  return;
-              }
-              if (datosFiltrados.length === 0) {
-                showMessage('exportacionMessage', 'No hay datos para exportar', 'error');
-                return;
-              }
-              datosFiltrados.sort((a, b) => a.direccion.localeCompare(b.direccion) || new Date(a.fecha) - new Date(b.fecha));
-              let csvContent = "Nombre,Dirección,Fecha Abono,Monto Abono,Deuda Actual,Comentario\n";
-              datosFiltrados.forEach(abono => {
-                csvContent += `"${abono.nombre}","${abono.direccion}","${formatDate(abono.fecha)}",`;
-                csvContent += `"${abono.abono.toFixed(2)}","${(deudasPorDireccion[abono.direccion.toLowerCase()] || 0).toFixed(2)}","${abono.comentario || ''}"\n`;
-              });
-              const blob = new Blob(["\uFEFF" + csvContent], {
-                type: 'text/csv;charset=utf-8;'
-              });
-              const url = URL.createObjectURL(blob);
-              const a = document.createElement('a');
-              a.href = url;
-              a.download = `abonos_${tipo}_${new Date().toISOString().split('T')[0]}.csv`;
-              a.click();
-              document.getElementById('exportarCodigo').value = '';
-              showMessage('exportacionMessage', 'CSV exportado correctamente', 'success');
-            } catch (error) {
-              console.error('Error al exportar:', error);
-              showMessage('exportacionMessage', 'Error al exportar los datos', 'error');
+
+            // Limpiar formulario (excepto nombre y dirección para facilitar múltiples abonos)
+            document.getElementById('abono').value = '';
+            document.getElementById('fecha').value = '';
+            document.getElementById('codigo').value = '';
+            mostrarComprobante(nuevoAbono); // Muestra el comprobante
+            
+            showMessage('altaMessage', 'Abono registrado con éxito', 'success');
+        });
+// Eliminar abonos específicos (nombre, dirección, monto y fecha)
+document.getElementById('btnEliminar').addEventListener('click', async function() {
+    if (!validarAlta()) return;
+
+    const nombre = document.getElementById('nombre').value.trim();
+    const direccion = document.getElementById('direccion').value.trim();
+    const abono = parseFloat(document.getElementById('abono').value);
+    const fecha = document.getElementById('fecha').value;
+
+    try {
+        // Buscar y eliminar de Firebase
+        const snapshot = await dbRef.once('value');
+        const abonos = snapshot.val() || {};
+        
+        let encontrado = false;
+        for (const key in abonos) {
+            const item = abonos[key];
+            if (item.nombre === nombre && 
+                item.direccion === direccion && 
+                item.abono === abono && 
+                item.fecha === fecha) {
+                
+                await dbRef.child(key).remove();
+                encontrado = true;
+                break;
             }
-          });
+        }
+
+        if (!encontrado) {
+            showMessage('altaMessage', 'No se encontró el abono especificado para eliminar', 'error');
+            return;
+        }
+
+        // Limpiar formulario
+        document.getElementById('abono').value = '';
+        document.getElementById('fecha').value = '';
+        document.getElementById('codigo').value = '';
+        
+        showMessage('altaMessage', 'Abono eliminado con éxito', 'success');
+    } catch (error) {
+        console.error('Error al eliminar:', error);
+        showMessage('altaMessage', 'Error al eliminar el abono', 'error');
+    }
+});
+
+        // Consultar abonos
+document.getElementById('btnConsultar').addEventListener('click', async function() {
+    const db = await getDatabase();
+    const deudasDb = await getDeudasDatabase();
+    
+    // Convertir objetos de Firebase a arrays
+    const abonosArray = db ? Object.values(db) : [];
+    const deudasArray = deudasDb ? Object.values(deudasDb) : [];
+    
+    const nombre = document.getElementById('consultaNombre').value.trim().toLowerCase();
+    const direccion = document.getElementById('consultaDireccion').value.trim().toLowerCase();
+
+    // Filtrar resultados
+    let resultados = abonosArray;
+            
+            if (nombre) {
+                resultados = resultados.filter(abono => abono.nombre.toLowerCase().includes(nombre));
+            }
+            
+            if (direccion) {
+                resultados = resultados.filter(abono => abono.direccion.toLowerCase().includes(direccion));
+            }
+
+            // Agrupar por dirección para calcular totales
+const agrupados = {};
+resultados.forEach(abono => {
+    const key = `${abono.nombre}|${abono.direccion}`;
+    if (!agrupados[key]) {
+        agrupados[key] = {
+            nombre: abono.nombre,
+            direccion: abono.direccion,
+            abonos: [],
+            totalAbonos: 0,
+            deuda: 0
+        };
+        
+        // Buscar deuda correspondiente
+        const deudaRegistro = Object.values(deudasDb).find(d => 
+            d.direccion && d.direccion.toLowerCase() === abono.direccion.toLowerCase()
+        );
+        if (deudaRegistro) {
+            agrupados[key].deuda = deudaRegistro.deuda || 0;
+        }
+    }
+    agrupados[key].abonos.push(abono);
+    agrupados[key].totalAbonos += abono.abono;
+});
+
+            // Mostrar resultados
+            const resultadosDiv = document.getElementById('resultadosConsulta');
+            
+            if (resultados.length === 0) {
+                resultadosDiv.innerHTML = '<p class="text-gray-500 text-center py-8">No se encontraron resultados</p>';
+                return;
+            }
+
+            let html = '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200">';
+            html += '<thead class="bg-gray-50"><tr>';
+            html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>';
+            html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dirección</th>';
+            html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Abono</th>';
+            html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>';
+            html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+
+            // Mostrar cada abono agrupado por dirección
+            Object.values(agrupados).forEach(grupo => {
+                // Mostrar cada abono individual
+                grupo.abonos.forEach((abono, index) => {
+                    html += `<tr class="hover:bg-gray-50">`;
+                    // Solo mostrar nombre y dirección en la primera fila del grupo
+                    if (index === 0) {
+                        html += `<td rowspan="${grupo.abonos.length}" class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.nombre}</td>`;
+                        html += `<td rowspan="${grupo.abonos.length}" class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.direccion}</td>`;
+                    }
+                    html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${abono.abono.toFixed(2)}</td>`;
+                    html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${abono.fecha}</td>`;
+                    html += `</tr>`;
+                });
+
+                // Fila de total de abonos para el grupo
+                html += `<tr class="total-row">`;
+                html += `<td colspan="2" class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">Total Abonos:</td>`;
+                html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$${grupo.totalAbonos.toFixed(2)}</td>`;
+                html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"></td>`;
+                html += `</tr>`;
+
+                // Fila de deuda para el grupo
+                html += `<tr class="deuda-row">`;
+                html += `<td colspan="2" class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">Deuda Actual:</td>`;
+                html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${grupo.deuda > 0 ? 'deuda-alta' : 'text-gray-900'}">$${grupo.deuda.toFixed(2)}</td>`;
+                html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"></td>`;
+                html += `</tr>`;
+
+                //Fila de Balance General
+                html += `<tr class="bg-blue-50">`;
+html += `<td colspan="2" class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">Balance General:</td>`;
+html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${(grupo.totalAbonos - grupo.deuda) < 0 ? 'text-red-600' : 'text-green-600'}">$${(grupo.totalAbonos - grupo.deuda).toFixed(2)}</td>`;
+html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"></td>`;
+html += `</tr>`;
+            });
+
+            html += '</tbody></table></div>';
+            resultadosDiv.innerHTML = html;
+        });
+
+        // Generar corte de deudas
+        document.getElementById('btnGenerarCorte').addEventListener('click', function() {
+            if (!validarGenerarCorte()) return;
+
+            const db = getDatabase();
+            const deudasDb = getDeudasDatabase();
+            const fechaCorte = document.getElementById('deudaFecha').value;
+
+            // Obtener todas las direcciones únicas de abonos
+            const direccionesUnicas = [...new Set(db.map(abono => abono.direccion.toLowerCase()))];
+
+            // Actualizar deudas para cada dirección
+            const nuevasDeudas = [...deudasDb];
+            
+            direccionesUnicas.forEach(direccion => {
+                // Buscar si ya existe un registro de deuda para esta dirección
+                const index = nuevasDeudas.findIndex(d => d.direccion.toLowerCase() === direccion);
+                const abonoEjemplo = db.find(a => a.direccion.toLowerCase() === direccion);
+                
+                if (index >= 0) {
+                    // Actualizar deuda existente (+180)
+                    nuevasDeudas[index] = {
+                        ...nuevasDeudas[index],
+                        deuda: nuevasDeudas[index].deuda + 180,
+                        ultimoCorte: fechaCorte
+                    };
+                } else {
+                    // Crear nuevo registro de deuda
+                    nuevasDeudas.push({
+                        id: Date.now(),
+                        nombre: abonoEjemplo.nombre,
+                        direccion: abonoEjemplo.direccion,
+                        deuda: 180,
+                        ultimoCorte: fechaCorte,
+                        fechaRegistro: new Date().toISOString()
+                    });
+                }
+            });
+
+            // Guardar cambios
+            saveDeudasDatabase(nuevasDeudas);
+
+            // Limpiar formulario
+            document.getElementById('deudaCodigo').value = '';
+            document.getElementById('deudaFecha').value = '';
+            
+            showMessage('deudaMessage', `Corte generado con éxito. Se agregó $180 a ${direccionesUnicas.length} direcciones.`, 'success');
+        });
+
+        // Cambiar código de acceso
+        document.getElementById('btnNuevoCodigo').addEventListener('click', function() {
+            if (!validarCambioCodigo()) return;
+
+            const nuevoCodigo = document.getElementById('nuevoCodigo').value;
+            
+            // Actualizar código de validación
+            CODIGO_VALIDACION = nuevoCodigo;
+            localStorage.setItem('codigo_validacion', nuevoCodigo);
+            
+            // Limpiar formulario
+            document.getElementById('codigoForm').reset();
+            showMessage('codigoMessage', 'Código de acceso actualizado con éxito', 'success');
+        });
+
+        // Mostrar mensajes
+        function showMessage(elementId, message, type) {
+            const element = document.getElementById(elementId);
+            element.classList.remove('hidden');
+            element.textContent = message;
+            
+            // Estilos según tipo
+            if (type === 'success') {
+                element.classList.remove('bg-red-100', 'text-red-700');
+                element.classList.add('bg-green-100', 'text-green-700');
+            } else {
+                element.classList.remove('bg-green-100', 'text-green-700');
+                element.classList.add('bg-red-100', 'text-red-700');
+            }
+            
+            // Ocultar después de 5 segundos
+            setTimeout(() => {
+                element.classList.add('hidden');
+            }, 5000);
+        }
+
+        // Formatear fecha para mostrar
+        function formatDate(dateString) {
+    // Si ya está en formato YYYY-MM-DD, devolverlo tal cual
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+        return dateString;
+    }
+    
+    // Si no, convertirla (esto es por compatibilidad con datos existentes)
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+}
+
+        // Formatear campos numéricos
+        document.getElementById('abono').addEventListener('blur', function(e) {
+            if (e.target.value) {
+                e.target.value = parseFloat(e.target.value).toFixed(2);
+            }
+        });
+        // Validar dirección existe
+function validarDireccionExiste(nombre, direccion) {
+    const db = getDatabase();
+    return db.some(abono => 
+        abono.direccion.toLowerCase() === direccion.toLowerCase() &&
+        abono.nombre.toLowerCase() === nombre.toLowerCase()
+    );
+}
+
+// Alta manual de deuda
+document.getElementById('btnDeudaManual').addEventListener('click', function() {
+    const nombre = document.getElementById('deudaManualNombre').value.trim();
+    const direccion = document.getElementById('deudaManualDireccion').value.trim();
+    const monto = parseFloat(document.getElementById('deudaManualMonto').value);
+    const codigo = document.getElementById('deudaManualCodigo').value;
+    
+    // Validaciones
+    if (codigo !== CODIGO_VALIDACION) {
+        document.getElementById('deudaManualCodigo').classList.add('input-error');
+        document.getElementById('deudaManualCodigoError').classList.remove('hidden');
+        return;
+    }
+    
+if (!validarDireccionExiste(nombre, direccion)) {
+    document.getElementById('deudaManualDireccion').classList.add('input-error');
+    document.getElementById('deudaManualDireccionError').textContent = 'La dirección no coincide con ningún propietario registrado';
+    document.getElementById('deudaManualDireccionError').classList.remove('hidden');
+    return;
+}
+    
+    // Registrar deuda
+    const deudasDb = getDeudasDatabase();
+    const index = deudasDb.findIndex(d => d.direccion.toLowerCase() === direccion.toLowerCase());
+    
+    if (index >= 0) {
+        // Actualizar deuda existente
+        deudasDb[index].deuda += monto;
+    } else {
+        // Crear nueva deuda
+        deudasDb.push({
+            id: Date.now(),
+            nombre,
+            direccion,
+            deuda: monto,
+            fechaRegistro: new Date().toISOString(),
+            esManual: true
+        });
+    }
+    
+    saveDeudasDatabase(deudasDb);
+    
+    // Limpiar formulario
+    document.getElementById('deudaManualForm').reset();
+    showMessage('deudaManualMessage', 'Deuda manual registrada con éxito', 'success');
+});
+function generarNumeroComprobante() {
+    const ahora = new Date();
+    const dia = String(ahora.getDate()).padStart(2, '0');
+    const mes = String(ahora.getMonth() + 1).padStart(2, '0');
+    const año = ahora.getFullYear();
+    const horas = String(ahora.getHours()).padStart(2, '0');
+    const minutos = String(ahora.getMinutes()).padStart(2, '0');
+    const segundos = String(ahora.getSeconds()).padStart(2, '0');
+    
+    return `${dia}${mes}${año}${horas}${minutos}${segundos}`;
+}
+        // Mostrar comprobante después de registrar abono
+function mostrarComprobante(abono) {
+    document.getElementById('comprobanteNumero').textContent = generarNumeroComprobante();
+    document.getElementById('comprobanteFecha').textContent = formatDate(abono.fecha);
+    document.getElementById('comprobanteNombre').textContent = abono.nombre;
+    document.getElementById('comprobanteDireccion').textContent = abono.direccion;
+    document.getElementById('comprobanteComentario').textContent = abono.comentario || 'Sin comentario';
+    document.getElementById('comprobanteMonto').textContent = `$${abono.abono.toFixed(2)}`;
+    
+    const modal = document.getElementById('comprobanteModal');
+    modal.classList.remove('hidden');
+    
+    // Configurar botones
+    document.getElementById('cerrarComprobante').addEventListener('click', () => {
+        modal.classList.add('hidden');
+    });
+    
+    document.getElementById('imprimirComprobante').addEventListener('click', () => {
+        window.print();
+    });
+    
+    document.getElementById('compartirComprobante').addEventListener('click', () => {
+        const texto = `Comprobante de Pago\n\n` +
+                      `N°: ${abono.id}\n` +
+                      `Fecha: ${formatDate(abono.fecha)}\n` +
+                      `Propietario: ${abono.nombre}\n` +
+                      `Dirección: ${abono.direccion}\n` +
+                      `Monto: $${abono.abono.toFixed(2)}\n\n` +
+                      `Gracias por su pago.`;
+        
+        if (navigator.share) {
+            navigator.share({
+                title: 'Comprobante de Pago',
+                text: texto
+            }).catch(err => {
+                console.log('Error al compartir:', err);
+                copiarAlPortapapeles(texto);
+            });
+        } else {
+            copiarAlPortapapeles(texto);
+        }
+    });
+}
+
+function copiarAlPortapapeles(texto) {
+    navigator.clipboard.writeText(texto).then(() => {
+        alert('Comprobante copiado al portapapeles');
+    }).catch(err => {
+        console.error('Error al copiar:', err);
+        prompt('Copie este texto:', texto);
+    });
+}
+
+// Modificar el evento btnAlta para mostrar comprobante
+    // Registrar un nuevo abono - Versión modificada para Firebase
+    document.getElementById('btnAlta').addEventListener('click', async function() {
+        if (!validarAlta()) return;
+
+        const nombre = document.getElementById('nombre').value.trim();
+        const direccion = document.getElementById('direccion').value.trim();
+        const abono = parseFloat(document.getElementById('abono').value);
+        const fecha = document.getElementById('fecha').value;
+        const comentario = document.getElementById('comentario').value.trim();
+
+        // Crear nuevo registro de abono
+        const nuevoAbono = {
+            nombre,
+            direccion,
+            abono,
+            fecha,
+            comentario,
+            fechaRegistro: new Date().toISOString()
+        };
+
+        try {
+            // Guardar en Firebase
+            const abonoId = await saveAbono(nuevoAbono);
+            nuevoAbono.id = abonoId; // Agregar el ID generado
+            
+            // Guardar también en localStorage como respaldo
+            const localDb = JSON.parse(localStorage.getItem(DB_KEY)) || [];
+            localDb.push(nuevoAbono);
+            localStorage.setItem(DB_KEY, JSON.stringify(localDb));
+            
+            // Actualizar deuda
+            const deudasDb = await getDeudasDatabase();
+            let deudaEncontrada = false;
+            
+            for (const key in deudasDb) {
+                if (deudasDb[key].direccion.toLowerCase() === direccion.toLowerCase()) {
+                    deudaEncontrada = true;
+                    const updatedDeuda = {
+                        ...deudasDb[key],
+                        deuda: Math.max(0, deudasDb[key].deuda - abono),
+                        ultimoAbono: fecha,
+                        ultimoAbonoMonto: abono
+                    };
+                    
+                    await saveDeuda(updatedDeuda);
+                    
+                    // Actualizar también en localStorage
+                    const localDeudas = JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || [];
+                    const updatedLocalDeudas = localDeudas.map(d => 
+                        d.direccion.toLowerCase() === direccion.toLowerCase() ? updatedDeuda : d
+                    );
+                    localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(updatedLocalDeudas));
+                    
+                    break;
+                }
+            }
+
+            // Limpiar formulario
+            document.getElementById('abono').value = '';
+            document.getElementById('fecha').value = '';
+            document.getElementById('codigo').value = '';
+            
+            mostrarComprobante(nuevoAbono);
+            showMessage('altaMessage', 'Abono registrado con éxito', 'success');
+        } catch (error) {
+            console.error('Error al guardar:', error);
+            showMessage('altaMessage', 'Error al registrar el abono. Usando almacenamiento local.', 'error');
+        }
+    });
+// Mostrar/ocultar campos según tipo de exportación
+document.getElementById('exportarTipo').addEventListener('change', function() {
+    const tipo = this.value;
+    document.getElementById('exportarClienteGroup').classList.toggle('hidden', tipo !== 'cliente');
+    document.getElementById('exportarMesGroup').classList.toggle('hidden', tipo !== 'mes');
+});
+
+// Función para exportar datos
+document.getElementById('btnExportar').addEventListener('click', function() {
+    const tipo = document.getElementById('exportarTipo').value;
+    const codigo = document.getElementById('exportarCodigo').value;
+    
+    if (codigo !== CODIGO_VALIDACION) {
+        document.getElementById('exportarCodigo').classList.add('input-error');
+        document.getElementById('exportarCodigoError').textContent = 'Código de acceso incorrecto';
+        document.getElementById('exportarCodigoError').classList.remove('hidden');
+        return;
+    }
+    
+    const db = getDatabase();
+    const deudasDb = getDeudasDatabase();
+    const ahora = new Date();
+    const deudasPorDireccion = {};
+    deudasDb.forEach(deuda => deudasPorDireccion[deuda.direccion.toLowerCase()] = deuda.deuda);
+    
+    let datosFiltrados = [];
+    const tresMesesAtras = new Date(ahora.setMonth(ahora.getMonth() - 3));
+    const unAnioAtras = new Date(ahora.setFullYear(ahora.getFullYear() - 1));
+    
+    switch(tipo) {
+        case 'cliente':
+            const direccion = document.getElementById('exportarCliente').value.trim().toLowerCase();
+            if (!direccion) {
+                showMessage('exportacionMessage', 'Ingrese una dirección', 'error');
+                return;
+            }
+            datosFiltrados = db.filter(abono => 
+                abono.direccion.toLowerCase().includes(direccion) && 
+                new Date(abono.fecha) >= tresMesesAtras
+            );
+            break;
+            
+        case 'todos':
+            datosFiltrados = db.filter(abono => new Date(abono.fecha) >= tresMesesAtras);
+            break;
+            
+        case 'mes':
+            const mes = parseInt(document.getElementById('exportarMes').value);
+            const añoActual = new Date().getFullYear();
+            datosFiltrados = db.filter(abono => 
+                new Date(abono.fecha).getMonth() + 1 === mes && 
+                new Date(abono.fecha).getFullYear() === añoActual
+            );
+            break;
+            
+        case 'completo':
+            datosFiltrados = db.filter(abono => new Date(abono.fecha) >= unAnioAtras);
+            break;
+            
+        default:
+            showMessage('exportacionMessage', 'Seleccione un tipo de exportación', 'error');
+            return;
+    }
+    
+    if (datosFiltrados.length === 0) {
+        showMessage('exportacionMessage', 'No hay datos para exportar', 'error');
+        return;
+    }
+    
+    datosFiltrados.sort((a, b) => a.direccion.localeCompare(b.direccion) || new Date(a.fecha) - new Date(b.fecha));
+    
+    let csvContent = "Nombre,Dirección,Fecha Abono,Monto Abono,Deuda Actual,Comentario\n";
+    datosFiltrados.forEach(abono => {
+        csvContent += `"${abono.nombre}","${abono.direccion}","${formatDate(abono.fecha)}",`;
+        csvContent += `"${abono.abono.toFixed(2)}","${(deudasPorDireccion[abono.direccion.toLowerCase()] || 0).toFixed(2)}","${abono.comentario || ''}"\n`;
+    });
+    
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `abonos_${tipo}_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    
+    document.getElementById('exportarCodigo').value = '';
+    showMessage('exportacionMessage', 'CSV exportado correctamente', 'success');
+});
+        
     </script>
-    <p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Created by Zain </a>
-    </p>
-    <!-- Modal Comprobante -->
-    <div id="comprobanteModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
-      <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
+<p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Created by Zain</a></p>
+
+<!-- Modal Comprobante -->
+<div id="comprobanteModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
         <div class="p-6">
-          <div class="flex justify-between items-center mb-4">
-            <h3 class="text-2xl font-bold text-indigo-700">Comprobante de Pago</h3>
-            <button id="cerrarComprobante" class="text-gray-500 hover:text-gray-700">
-              <i class="fas fa-times"></i>
-            </button>
-          </div>
-          <div class="border-b pb-4 mb-4">
-            <div class="flex justify-between mb-2">
-              <span class="text-gray-600">N° Comprobante:</span>
-              <span class="font-medium" id="comprobanteNumero"></span>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-2xl font-bold text-indigo-700">Comprobante de Pago</h3>
+                <button id="cerrarComprobante" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times"></i>
+                </button>
             </div>
-            <div class="flex justify-between mb-2">
-              <span class="text-gray-600">Fecha:</span>
-              <span class="font-medium" id="comprobanteFecha"></span>
+            
+            <div class="border-b pb-4 mb-4">
+                <div class="flex justify-between mb-2">
+                    <span class="text-gray-600">N° Comprobante:</span>
+                    <span class="font-medium" id="comprobanteNumero"></span>
+                </div>
+                <div class="flex justify-between mb-2">
+                    <span class="text-gray-600">Fecha:</span>
+                    <span class="font-medium" id="comprobanteFecha"></span>
+                </div>
             </div>
-          </div>
-          <div class="mb-6">
-            <h4 class="text-lg font-semibold text-gray-800 mb-2">Detalles del Pago</h4>
-            <div class="bg-gray-50 p-4 rounded-lg">
-              <div class="flex justify-between mb-2">
-                <span class="text-gray-600">Propietario:</span>
-                <span class="font-medium" id="comprobanteNombre"></span>
-              </div>
-              <div class="flex justify-between mb-2">
-                <span class="text-gray-600">Dirección:</span>
-                <span class="font-medium" id="comprobanteDireccion"></span>
-              </div>
-              <div class="flex justify-between mb-2">
-                <span class="text-gray-600">Comentario:</span>
-                <span class="font-medium" id="comprobanteComentario"></span>
-              </div>
-              <div class="flex justify-between">
-                <span class="text-gray-600">Monto:</span>
-                <span class="text-xl font-bold text-green-600" id="comprobanteMonto"></span>
-              </div>
+            
+            <div class="mb-6">
+                <h4 class="text-lg font-semibold text-gray-800 mb-2">Detalles del Pago</h4>
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <div class="flex justify-between mb-2">
+                        <span class="text-gray-600">Propietario:</span>
+                        <span class="font-medium" id="comprobanteNombre"></span>
+                    </div>
+                    <div class="flex justify-between mb-2">
+                        <span class="text-gray-600">Dirección:</span>
+                        <span class="font-medium" id="comprobanteDireccion"></span>
+                    </div>
+                    <div class="flex justify-between mb-2">
+    <span class="text-gray-600">Comentario:</span>
+    <span class="font-medium" id="comprobanteComentario"></span>
+</div>
+                    <div class="flex justify-between">
+                        <span class="text-gray-600">Monto:</span>
+                        <span class="text-xl font-bold text-green-600" id="comprobanteMonto"></span>
+                    </div>
+                </div>
             </div>
-          </div>
-          <div class="border-t pt-4 text-center text-sm text-gray-500">
-            <p>Gracias por su pago. Este comprobante es válido como recibo oficial.</p>
-            <p class="mt-2">Administración de Condominios Cerro de Pasco</p>
-          </div>
-          <div class="mt-6 flex justify-center space-x-4">
-            <button id="imprimirComprobante" class="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center">
-              <i class="fas fa-print mr-2"></i> Imprimir </button>
-            <button id="compartirComprobante" class="bg-green-600 text-white px-4 py-2 rounded-md flex items-center">
-              <i class="fas fa-share-alt mr-2"></i> Compartir </button>
-          </div>
+            
+            <div class="border-t pt-4 text-center text-sm text-gray-500">
+                <p>Gracias por su pago. Este comprobante es válido como recibo oficial.</p>
+                <p class="mt-2">Administración de Condominios Cerro de Pasco</p>
+            </div>
+            
+            <div class="mt-6 flex justify-center space-x-4">
+                <button id="imprimirComprobante" class="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center">
+                    <i class="fas fa-print mr-2"></i> Imprimir
+                </button>
+                <button id="compartirComprobante" class="bg-green-600 text-white px-4 py-2 rounded-md flex items-center">
+                    <i class="fas fa-share-alt mr-2"></i> Compartir
+                </button>
+            </div>
         </div>
-      </div>
     </div>
-  </body>
+</div>
+</body>
 </html>
