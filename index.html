@@ -1798,8 +1798,8 @@ document.getElementById('btnExportar').addEventListener('click', async function(
                     return;
                 }
                 datosFiltrados = [
-                    ...abonosArray.filter(abono => abono.direccion.toLowerCase() === direccion.toLowerCase(),
-                    ...deudasArray.filter(deuda => deuda.direccion.toLowerCase() === direccion.toLowerCase()
+                    ...abonosArray.filter(abono => abono.direccion === direccion),
+                    ...deudasArray.filter(deuda => deuda.direccion === direccion)
                 ];
                 break;
             }
