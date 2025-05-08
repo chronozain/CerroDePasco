@@ -790,15 +790,14 @@ async function existePropietario(nombre, direccion) {
         // Validar formulario de alta
         async function validarAlta() {
             let isValid = true;
-            const nombre = document.getElementById('nombre');
-            const direccion = document.getElementById('direccion');
-            const abono = document.getElementById('abono');
-            const fecha = document.getElementById('fecha');
-            const codigoElement = document.getElementById('codigo');
-            const codigo = codigoElement.value;
-            const isValidCode = await validateAccessCode(codigo);
+    const nombre = document.getElementById('nombre');
+    const direccion = document.getElementById('direccion');
+    const abono = document.getElementById('abono');
+    const fecha = document.getElementById('fecha');
+    const codigoElement = document.getElementById('codigo');
+    const codigo = codigoElement.value;
     
-    if (!isValidCode) {
+   /* if (!isValidCode) {
         codigoElement.classList.add('input-error');
         document.getElementById('codigoError').classList.remove('hidden');
         document.getElementById('codigoError').textContent = 'Código de acceso incorrecto';
@@ -814,7 +813,7 @@ async function existePropietario(nombre, direccion) {
     }
     
     return isValid;
-}
+}*/
 
             // Validar nombre
             if (!nombre.value.trim()) {
@@ -857,23 +856,32 @@ async function existePropietario(nombre, direccion) {
             }
 
             // Validar código
-            if (codigo.value !== CODIGO_VALIDACION) {
-                codigo.classList.add('input-error');
-                document.getElementById('codigoError').classList.remove('hidden');
-                document.getElementById('codigoError').textContent = 'Código de acceso incorrecto';
-                isValid = false;
-            } else if (!/^\d{6}$/.test(codigo.value)) {
-                codigo.classList.add('input-error');
-                document.getElementById('codigoError').classList.remove('hidden');
-                document.getElementById('codigoError').textContent = 'El código debe tener 6 dígitos numéricos';
-                isValid = false;
-            } else {
-                codigo.classList.remove('input-error');
-                document.getElementById('codigoError').classList.add('hidden');
-            }
-
-            return isValid;
+            try {
+        const isValidCode = await validateAccessCode(codigo);
+        if (!isValidCode) {
+            codigoElement.classList.add('input-error');
+            document.getElementById('codigoError').classList.remove('hidden');
+            document.getElementById('codigoError').textContent = 'Código de acceso incorrecto';
+            isValid = false;
+        } else if (!/^\d{6}$/.test(codigo)) {
+            codigoElement.classList.add('input-error');
+            document.getElementById('codigoError').classList.remove('hidden');
+            document.getElementById('codigoError').textContent = 'El código debe tener 6 dígitos numéricos';
+            isValid = false;
+        } else {
+            codigoElement.classList.remove('input-error');
+            document.getElementById('codigoError').classList.add('hidden');
         }
+    } catch (error) {
+        console.error('Error al validar código:', error);
+        codigoElement.classList.add('input-error');
+        document.getElementById('codigoError').classList.remove('hidden');
+        document.getElementById('codigoError').textContent = 'Error al validar el código';
+        isValid = false;
+    }
+
+    return isValid;
+}
 
         // Validar formulario de generación de corte
         function validarGenerarCorte() {
