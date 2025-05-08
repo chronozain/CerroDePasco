@@ -960,7 +960,7 @@ localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
         }
 
         // Registrar un nuevo abono
-        document.getElementById('btnAlta').addEventListener('click', function() {
+        document.getElementById('btnAlta').addEventListener('click', async function() {
             if (!validarAlta()) return;
 
             const db = getDatabase();
