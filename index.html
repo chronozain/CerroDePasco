@@ -662,30 +662,28 @@
         }
       });
       // Consultar abonos
-      document.getElementById('btnConsultar').addEventListener('click', async function() {
-            try {
-              const db = await getDatabase();
-              const deudasDb = await getDeudasDatabase();
-              const snapshot = await dbRef.once('value');
-              const data = snapshot.val();
-              console.log("Datos obtenidos de Firebase:", data); // Agregar depuración
-              if (!data) {
-                document.getElementById('resultadosConsulta').innerHTML = ' < p > No se encontraron abonos. < /p>';
-                return;
-              }
-              // Convertir objetos a arrays para facilitar el manejo
-              const abonosArray = db ? Object.values(db) : [];
-              const deudasArray = deudasDb ? Object.values(deudasDb) : [];
-              const nombre = document.getElementById('consultaNombre').value.trim().toLowerCase();
-              const direccion = document.getElementById('consultaDireccion').value.trim().toLowerCase();
-              // Filtrar resultados
-              let resultados = abonosArray;
-              if (nombre) {
-                resultados = resultados.filter(abono => abono.nombre && abono.nombre.toLowerCase().includes(nombre));
-              }
-              if (direccion) {
-                resultados = resultados.filter(abono => abono.direccion && abono.direccion.toLowerCase().includes(direccion));
-              }
+document.getElementById('btnConsultar').addEventListener('click', async function() {
+    try {
+        // 1. Obtener datos de Firebase y localStorage
+        const db = await getDatabase();
+        const deudasDb = await getDeudasDatabase();
+
+        // 2. Obtener valores de búsqueda
+        const nombre = document.getElementById('consultaNombre').value.trim().toLowerCase();
+        const direccion = document.getElementById('consultaDireccion').value.trim().toLowerCase();
+
+        // 3. Convertir datos de Firebase en arrays
+        const abonosArray = db ? Object.values(db) : [];
+        const deudasArray = deudasDb ? Object.values(deudasDb) : [];
+
+        // 4. Filtrar resultados según búsqueda
+        let resultados = abonosArray;
+        if (nombre) {
+            resultados = resultados.filter(abono => abono.nombre && abono.nombre.toLowerCase().includes(nombre));
+        }
+        if (direccion) {
+            resultados = resultados.filter(abono => abono.direccion && abono.direccion.toLowerCase().includes(direccion));
+        }
               // Agrupar por dirección para calcular totales
               const agrupados = {};
               resultados.forEach(abono => {
@@ -708,10 +706,10 @@
                 agrupados[key].totalAbonos += abono.abono;
               });
               // Mostrar resultados
-              const resultadosDiv = document.getElementById('resultadosConsulta');
-              if (resultados.length === 0) {
-                resultadosDiv.innerHTML = ' < p class = "text-gray-500 text-center py-8" > No se encontraron resultados < /p>';
-                return;
+        const resultadosDiv = document.getElementById('resultadosConsulta');
+        if (resultados.length === 0) {
+            resultadosDiv.innerHTML = '<p class="text-gray-500 text-center py-8">No se encontraron resultados</p>';
+            return;
               }
               let html = ' < div class = "overflow-x-auto" > < table class = "min-w-full divide-y divide-gray-200" > ';
               html += ' < thead class = "bg-gray-50" > < tr > ';
@@ -723,61 +721,23 @@
               // Mostrar cada abono agrupado por dirección
               Object.values(agrupados).forEach(grupo => {
                 // Mostrar cada abono individual
-                grupo.abonos.forEach((abono, index) => {
-                  html += `
-																											<tr class="hover:bg-gray-50">`;
-                  // Solo mostrar nombre y dirección en la primera fila del grupo
-                  if (index === 0) {
-                    html += `
-																												<td rowspan="${grupo.abonos.length}" class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.nombre}</td>`;
-                    html += `
-																												<td rowspan="${grupo.abonos.length}" class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.direccion}</td>`;
-                  }
-                  html += `
-																												<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${abono.abono.toFixed(2)}</td>`;
-                  html += `
-																												<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${abono.fecha}</td>`;
-                  html += `
-																											</tr>`;
-                });
-                // Fila de total de abonos para el grupo
-                html += `
-																											<tr class="total-row">`;
-                html += `
-																												<td colspan="2" class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">Total Abonos:</td>`;
-                html += `
-																												<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$${grupo.totalAbonos.toFixed(2)}</td>`;
-                html += `
-																												<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"></td>`;
-                html += `
-																											</tr>`;
-                // Fila de deuda para el grupo
-                html += `
-																											<tr class="deuda-row">`;
-                html += `
-																												<td colspan="2" class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">Deuda Actual:</td>`;
-                html += `
-																												<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${grupo.deuda > 0 ? 'deuda-alta' : 'text-gray-900'}">$${grupo.deuda.toFixed(2)}</td>`;
-                html += `
-																												<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"></td>`;
-                html += `
-																											</tr>`;
-                //Fila de Balance General
-                html += `
-																											<tr class="bg-blue-50">`;
-                html += `
-																												<td colspan="2" class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 text-right">Balance General:</td>`;
-                html += `
-																												<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${(grupo.totalAbonos - grupo.deuda) < 0 ? 'text-red-600' : 'text-green-600'}">$${(grupo.totalAbonos - grupo.deuda).toFixed(2)}
-																												</td>`;
-                html += `
-																												<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900"></td>`;
-                html += `
-																											</tr>`;
-              //});
+resultados.forEach(abono => {
+            html += `
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${abono.nombre}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${abono.direccion}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">$${abono.abono.toFixed(2)}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${abono.fecha}</td>
+                </tr>
+            `;
+        });
               html += ' < /tbody> < /table> < /div>';
               resultadosDiv.innerHTML = html;
-            });
+		      } catch (error) {
+        console.error('Error en consulta:', error);
+        document.getElementById('resultadosConsulta').innerHTML = '<p class="text-red-500">Error al realizar la consulta</p>';
+    }
+});
           // Generar corte de deudas
           document.getElementById('btnGenerarCorte').addEventListener('click', async function() {
             if (!validarGenerarCorte()) return;
