@@ -360,7 +360,7 @@
         // Base de datos simulada en localStorage
         const DB_KEY = 'condominio_abonos';
         const DB_DEUDAS_KEY = 'condominio_deudas';
-        const ADMIN_CODE = '975500';
+        //const ADMIN_CODE = '975500';
         let CODIGO_VALIDACION = localStorage.getItem('codigo_validacion') || '578963';
         const CODIGO_HISTORY_KEY = 'codigo_history';
         const firebaseConfig = {
@@ -464,6 +464,52 @@
             await newDeudaRef.set(deuda);
         }
     }
+        //Funcion validacion Exportacion
+        async function validarExportacion() {
+    let isValid = true;
+    const exportarCodigo = document.getElementById('exportarCodigo');
+    const exportarTipo = document.getElementById('exportarTipo').value;
+    
+    // Validar código (versión actualizada)
+    const isValidCode = await validateAccessCode(exportarCodigo.value);
+    if (!isValidCode) {
+        exportarCodigo.classList.add('input-error');
+        document.getElementById('exportarCodigoError').textContent = 'Código de acceso incorrecto';
+        document.getElementById('exportarCodigoError').classList.remove('hidden');
+        isValid = false;
+    } else if (!/^\d{6}$/.test(exportarCodigo.value)) {
+        exportarCodigo.classList.add('input-error');
+        document.getElementById('exportarCodigoError').textContent = 'El código debe tener 6 dígitos numéricos';
+        document.getElementById('exportarCodigoError').classList.remove('hidden');
+        isValid = false;
+    } else {
+        exportarCodigo.classList.remove('input-error');
+        document.getElementById('exportarCodigoError').classList.add('hidden');
+    }
+
+    // Validar tipo de exportación
+    if (!exportarTipo) {
+        isValid = false;
+        showMessage('exportacionMessage', 'Seleccione un tipo de exportación', 'error');
+    }
+
+    // Validar campos adicionales según el tipo
+    if (exportarTipo === 'cliente') {
+        const cliente = document.getElementById('exportarCliente').value.trim();
+        if (!cliente) {
+            isValid = false;
+            showMessage('exportacionMessage', 'Ingrese una dirección para filtrar', 'error');
+        }
+    } else if (exportarTipo === 'mes') {
+        const mes = document.getElementById('exportarMes').value;
+        if (!mes) {
+            isValid = false;
+            showMessage('exportacionMessage', 'Seleccione un mes', 'error');
+        }
+    }
+
+    return isValid;
+}
 
     // Obtener el código de validación
     async function getCodigoValidacion() {
@@ -566,7 +612,7 @@ async function getDatabase() {
     return isValid;
 }
 
-        function validarDeudaManual() {
+    async function validarDeudaManual() {
     let isValid = true;
     const nombre = document.getElementById('deudaManualNombre');
     const direccion = document.getElementById('deudaManualDireccion');
@@ -601,7 +647,8 @@ async function getDatabase() {
     }
 
     // Validar código
-    if (codigo.value !== CODIGO_VALIDACION) {
+    const isValidCode = await validateAccessCode(codigo.value);
+    if (!isValidCode) {
         codigo.classList.add('input-error');
         document.getElementById('deudaManualCodigoError').textContent = 'Código de acceso incorrecto';
         document.getElementById('deudaManualCodigoError').classList.remove('hidden');
@@ -832,22 +879,24 @@ async function existePropietario(nombre, direccion) {
             let isValid = true;
             const deudaCodigo = document.getElementById('deudaCodigo');
             const deudaFecha = document.getElementById('deudaFecha');
+            const montoMensual = document.getElementById('montoMensual');
 
             // Validar código
-            if (deudaCodigo.value !== CODIGO_VALIDACION) {
-                deudaCodigo.classList.add('input-error');
-                document.getElementById('deudaCodigoError').classList.remove('hidden');
-                document.getElementById('deudaCodigoError').textContent = 'Código de acceso incorrecto';
-                isValid = false;
-            } else if (!/^\d{6}$/.test(deudaCodigo.value)) {
-                deudaCodigo.classList.add('input-error');
-                document.getElementById('deudaCodigoError').classList.remove('hidden');
-                document.getElementById('deudaCodigoError').textContent = 'El código debe tener 6 dígitos numéricos';
-                isValid = false;
-            } else {
-                deudaCodigo.classList.remove('input-error');
-                document.getElementById('deudaCodigoError').classList.add('hidden');
-            }
+const isValidCode = await validateAccessCode(deudaCodigo.value);
+    if (!isValidCode) {
+        deudaCodigo.classList.add('input-error');
+        document.getElementById('deudaCodigoError').classList.remove('hidden');
+        document.getElementById('deudaCodigoError').textContent = 'Código de acceso incorrecto';
+        isValid = false;
+    } else if (!/^\d{6}$/.test(deudaCodigo.value)) {
+        deudaCodigo.classList.add('input-error');
+        document.getElementById('deudaCodigoError').classList.remove('hidden');
+        document.getElementById('deudaCodigoError').textContent = 'El código debe tener 6 dígitos numéricos';
+        isValid = false;
+    } else {
+        deudaCodigo.classList.remove('input-error');
+        document.getElementById('deudaCodigoError').classList.add('hidden');
+    }
 
             // Validar fecha
             if (!deudaFecha.value) {
@@ -858,6 +907,12 @@ async function existePropietario(nombre, direccion) {
                 deudaFecha.classList.remove('input-error');
                 document.getElementById('deudaFechaError').classList.add('hidden');
             }
+                if (!montoMensual.value || parseFloat(montoMensual.value) <= 0) {
+        montoMensual.classList.add('input-error');
+        isValid = false;
+    } else {
+        montoMensual.classList.remove('input-error');
+    }
 
             return isValid;
         }
@@ -1482,6 +1537,7 @@ document.getElementById('exportarTipo').addEventListener('change', function() {
 
 // Función para exportar datos - Versión corregida para Firebase
 document.getElementById('btnExportar').addEventListener('click', async function() {
+    if (!await validarExportacion()) return;
     const tipo = document.getElementById('exportarTipo').value;
     const codigo = document.getElementById('exportarCodigo').value;
     const btn = this;
