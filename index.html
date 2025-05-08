@@ -1585,17 +1585,9 @@ document.getElementById('btnExportar').addEventListener('click', async function(
         
         // Convertir objetos a arrays y filtrar según el tipo de exportación
         let abonosArray = Object.values(abonos);
-        const ahora = new Date();
-        const tresMesesAtras = new Date(ahora.setMonth(ahora.getMonth() - 3));
-        const unAnioAtras = new Date(ahora.setFullYear(ahora.getFullYear() - 1));
+        let deudasArray = Object.values(deudas);
         
-        // Crear mapa de deudas por dirección para fácil acceso
-        const deudasPorDireccion = {};
-        Object.values(deudas).forEach(deuda => {
-            deudasPorDireccion[deuda.direccion.toLowerCase()] = deuda.deuda;
-        });
-        
-        // Filtrar según el tipo de exportación
+        // Filtrar según tipo de exportación
         let datosFiltrados = [];
         
         switch(tipo) {
@@ -1605,69 +1597,58 @@ document.getElementById('btnExportar').addEventListener('click', async function(
                     showMessage('exportacionMessage', 'Ingrese una dirección', 'error');
                     return;
                 }
-                datosFiltrados = abonosArray.filter(abono => 
-                    abono.direccion.toLowerCase().includes(direccion) && 
-                    new Date(abono.fecha) >= tresMesesAtras
-                );
+                datosFiltrados = [
+                    ...abonosArray.filter(abono => abono.direccion.toLowerCase().includes(direccion)),
+                    ...deudasArray.filter(deuda => deuda.direccion.toLowerCase().includes(direccion))
+                ];
                 break;
             }
-                
             case 'todos':
-                datosFiltrados = abonosArray.filter(abono => new Date(abono.fecha) >= tresMesesAtras);
+                datosFiltrados = [...abonosArray, ...deudasArray];
                 break;
-                
             case 'mes': {
                 const mes = parseInt(document.getElementById('exportarMes').value);
                 const añoActual = new Date().getFullYear();
-                datosFiltrados = abonosArray.filter(abono => 
-                    new Date(abono.fecha).getMonth() + 1 === mes && 
-                    new Date(abono.fecha).getFullYear() === añoActual
-                );
+                datosFiltrados = [
+                    ...abonosArray.filter(abono => new Date(abono.fecha).getMonth() + 1 === mes && new Date(abono.fecha).getFullYear() === añoActual),
+                    ...deudasArray.filter(deuda => new Date(deuda.ultimoCorte).getMonth() + 1 === mes && new Date(deuda.ultimoCorte).getFullYear() === añoActual)
+                ];
                 break;
             }
-                
             case 'completo':
-                datosFiltrados = abonosArray.filter(abono => new Date(abono.fecha) >= unAnioAtras);
+                datosFiltrados = [...abonosArray, ...deudasArray];
                 break;
-                
             default:
                 showMessage('exportacionMessage', 'Seleccione un tipo de exportación', 'error');
                 return;
         }
-        
+
         if (datosFiltrados.length === 0) {
             showMessage('exportacionMessage', 'No hay datos para exportar', 'error');
             return;
         }
-        
-        // Ordenar por dirección y fecha
-        datosFiltrados.sort((a, b) => {
-            const dirComp = a.direccion.localeCompare(b.direccion);
-            if (dirComp !== 0) return dirComp;
-            return new Date(a.fecha) - new Date(b.fecha);
-        });
-        
+
         // Crear contenido CSV
-        let csvContent = "Nombre,Dirección,Fecha Abono,Monto Abono,Deuda Actual,Comentario\n";
-        
-        datosFiltrados.forEach(abono => {
-            const deuda = deudasPorDireccion[abono.direccion.toLowerCase()] || 0;
-            csvContent += `"${abono.nombre || ''}","${abono.direccion || ''}","${formatDate(abono.fecha)}",`;
-            csvContent += `"${abono.abono ? abono.abono.toFixed(2) : '0.00'}","${deuda.toFixed(2)}","${abono.comentario || ''}"\n`;
+        let csvContent = "Nombre,Dirección,Fecha,Monto,Tipo,Comentario\n";
+
+        datosFiltrados.forEach(item => {
+            const tipoRegistro = item.abono ? "Abono" : "Deuda";
+            const fecha = item.fecha || item.ultimoCorte;
+            const monto = item.abono ? item.abono : item.deuda;
+
+            csvContent += `"${item.nombre || ''}","${item.direccion || ''}","${fecha}","${monto.toFixed(2)}","${tipoRegistro}","${item.comentario || ''}"\n`;
         });
-        
+
         // Crear y descargar archivo CSV
         const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `abonos_${tipo}_${new Date().toISOString().split('T')[0]}.csv`;
+        a.download = `movimientos_${tipo}_${new Date().toISOString().split('T')[0]}.csv`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        
-        // Limpiar formulario
-        document.getElementById('exportarCodigo').value = '';
+
         showMessage('exportacionMessage', 'CSV exportado correctamente', 'success');
     } catch (error) {
         console.error('Error al exportar:', error);
@@ -1677,6 +1658,7 @@ document.getElementById('btnExportar').addEventListener('click', async function(
         btn.innerHTML = '<i class="fas fa-file-csv mr-2"></i> Exportar a CSV';
     }
 });
+
         
     </script>
 <p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Created by Zain</a></p>
