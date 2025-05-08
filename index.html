@@ -1235,85 +1235,122 @@ document.getElementById('exportarTipo').addEventListener('change', function() {
     document.getElementById('exportarMesGroup').classList.toggle('hidden', tipo !== 'mes');
 });
 
-// Función para exportar datos
-document.getElementById('btnExportar').addEventListener('click', function() {
+// Función para exportar datos - Versión corregida para Firebase
+document.getElementById('btnExportar').addEventListener('click', async function() {
     const tipo = document.getElementById('exportarTipo').value;
     const codigo = document.getElementById('exportarCodigo').value;
     
+    // Validar código de acceso
     if (codigo !== CODIGO_VALIDACION) {
         document.getElementById('exportarCodigo').classList.add('input-error');
         document.getElementById('exportarCodigoError').textContent = 'Código de acceso incorrecto';
         document.getElementById('exportarCodigoError').classList.remove('hidden');
         return;
+    } else {
+        document.getElementById('exportarCodigo').classList.remove('input-error');
+        document.getElementById('exportarCodigoError').classList.add('hidden');
     }
     
-    const db = getDatabase();
-    const deudasDb = getDeudasDatabase();
-    const ahora = new Date();
-    const deudasPorDireccion = {};
-    deudasDb.forEach(deuda => deudasPorDireccion[deuda.direccion.toLowerCase()] = deuda.deuda);
-    
-    let datosFiltrados = [];
-    const tresMesesAtras = new Date(ahora.setMonth(ahora.getMonth() - 3));
-    const unAnioAtras = new Date(ahora.setFullYear(ahora.getFullYear() - 1));
-    
-    switch(tipo) {
-        case 'cliente':
-            const direccion = document.getElementById('exportarCliente').value.trim().toLowerCase();
-            if (!direccion) {
-                showMessage('exportacionMessage', 'Ingrese una dirección', 'error');
-                return;
+    try {
+        // Obtener datos de Firebase
+        const [abonosSnapshot, deudasSnapshot] = await Promise.all([
+            dbRef.once('value'),
+            deudasRef.once('value')
+        ]);
+        
+        const abonos = abonosSnapshot.val() || {};
+        const deudas = deudasSnapshot.val() || {};
+        
+        // Convertir objetos a arrays y filtrar según el tipo de exportación
+        let abonosArray = Object.values(abonos);
+        const ahora = new Date();
+        const tresMesesAtras = new Date(ahora.setMonth(ahora.getMonth() - 3));
+        const unAnioAtras = new Date(ahora.setFullYear(ahora.getFullYear() - 1));
+        
+        // Crear mapa de deudas por dirección para fácil acceso
+        const deudasPorDireccion = {};
+        Object.values(deudas).forEach(deuda => {
+            deudasPorDireccion[deuda.direccion.toLowerCase()] = deuda.deuda;
+        });
+        
+        // Filtrar según el tipo de exportación
+        let datosFiltrados = [];
+        
+        switch(tipo) {
+            case 'cliente': {
+                const direccion = document.getElementById('exportarCliente').value.trim().toLowerCase();
+                if (!direccion) {
+                    showMessage('exportacionMessage', 'Ingrese una dirección', 'error');
+                    return;
+                }
+                datosFiltrados = abonosArray.filter(abono => 
+                    abono.direccion.toLowerCase().includes(direccion) && 
+                    new Date(abono.fecha) >= tresMesesAtras
+                );
+                break;
             }
-            datosFiltrados = db.filter(abono => 
-                abono.direccion.toLowerCase().includes(direccion) && 
-                new Date(abono.fecha) >= tresMesesAtras
-            );
-            break;
-            
-        case 'todos':
-            datosFiltrados = db.filter(abono => new Date(abono.fecha) >= tresMesesAtras);
-            break;
-            
-        case 'mes':
-            const mes = parseInt(document.getElementById('exportarMes').value);
-            const añoActual = new Date().getFullYear();
-            datosFiltrados = db.filter(abono => 
-                new Date(abono.fecha).getMonth() + 1 === mes && 
-                new Date(abono.fecha).getFullYear() === añoActual
-            );
-            break;
-            
-        case 'completo':
-            datosFiltrados = db.filter(abono => new Date(abono.fecha) >= unAnioAtras);
-            break;
-            
-        default:
-            showMessage('exportacionMessage', 'Seleccione un tipo de exportación', 'error');
+                
+            case 'todos':
+                datosFiltrados = abonosArray.filter(abono => new Date(abono.fecha) >= tresMesesAtras);
+                break;
+                
+            case 'mes': {
+                const mes = parseInt(document.getElementById('exportarMes').value);
+                const añoActual = new Date().getFullYear();
+                datosFiltrados = abonosArray.filter(abono => 
+                    new Date(abono.fecha).getMonth() + 1 === mes && 
+                    new Date(abono.fecha).getFullYear() === añoActual
+                );
+                break;
+            }
+                
+            case 'completo':
+                datosFiltrados = abonosArray.filter(abono => new Date(abono.fecha) >= unAnioAtras);
+                break;
+                
+            default:
+                showMessage('exportacionMessage', 'Seleccione un tipo de exportación', 'error');
+                return;
+        }
+        
+        if (datosFiltrados.length === 0) {
+            showMessage('exportacionMessage', 'No hay datos para exportar', 'error');
             return;
+        }
+        
+        // Ordenar por dirección y fecha
+        datosFiltrados.sort((a, b) => {
+            const dirComp = a.direccion.localeCompare(b.direccion);
+            if (dirComp !== 0) return dirComp;
+            return new Date(a.fecha) - new Date(b.fecha);
+        });
+        
+        // Crear contenido CSV
+        let csvContent = "Nombre,Dirección,Fecha Abono,Monto Abono,Deuda Actual,Comentario\n";
+        
+        datosFiltrados.forEach(abono => {
+            const deuda = deudasPorDireccion[abono.direccion.toLowerCase()] || 0;
+            csvContent += `"${abono.nombre || ''}","${abono.direccion || ''}","${formatDate(abono.fecha)}",`;
+            csvContent += `"${abono.abono ? abono.abono.toFixed(2) : '0.00'}","${deuda.toFixed(2)}","${abono.comentario || ''}"\n`;
+        });
+        
+        // Crear y descargar archivo CSV
+        const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `abonos_${tipo}_${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        
+        // Limpiar formulario
+        document.getElementById('exportarCodigo').value = '';
+        showMessage('exportacionMessage', 'CSV exportado correctamente', 'success');
+    } catch (error) {
+        console.error('Error al exportar:', error);
+        showMessage('exportacionMessage', 'Error al exportar los datos', 'error');
     }
-    
-    if (datosFiltrados.length === 0) {
-        showMessage('exportacionMessage', 'No hay datos para exportar', 'error');
-        return;
-    }
-    
-    datosFiltrados.sort((a, b) => a.direccion.localeCompare(b.direccion) || new Date(a.fecha) - new Date(b.fecha));
-    
-    let csvContent = "Nombre,Dirección,Fecha Abono,Monto Abono,Deuda Actual,Comentario\n";
-    datosFiltrados.forEach(abono => {
-        csvContent += `"${abono.nombre}","${abono.direccion}","${formatDate(abono.fecha)}",`;
-        csvContent += `"${abono.abono.toFixed(2)}","${(deudasPorDireccion[abono.direccion.toLowerCase()] || 0).toFixed(2)}","${abono.comentario || ''}"\n`;
-    });
-    
-    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `abonos_${tipo}_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    
-    document.getElementById('exportarCodigo').value = '';
-    showMessage('exportacionMessage', 'CSV exportado correctamente', 'success');
 });
         
     </script>
