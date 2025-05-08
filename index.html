@@ -363,8 +363,10 @@
   appId: "1:480610541864:web:e788b6df3264059d26301d"
 };
     // Inicializa Firebase
-    const app = initializeApp(firebaseConfig);
-    const database = firebase.database(app);
+     if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+    }
+    const database = firebase.database();
     // Referencias a las bases de datos
     const dbRef = database.ref('abonos');
     const deudasRef = database.ref('deudas');
