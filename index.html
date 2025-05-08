@@ -1648,6 +1648,7 @@ document.getElementById('btnExportar').addEventListener('click', async function(
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+        document.getElementById('exportarCodigo').value = '';
 
         showMessage('exportacionMessage', 'CSV exportado correctamente', 'success');
     } catch (error) {
