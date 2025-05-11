@@ -7,8 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-database-compat.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         .fade-in {
@@ -503,565 +501,6 @@
         const snapshot = await dbRef.once('value');
         return snapshot.val() || {};
     }
-//Funcion para estados de cuenta
-async function mostrarEstadoDeCuenta(nombrePropietario, direccionPropietario) {
-    try {
-        // Obtener todos los abonos para esta dirección
-        const abonosSnapshot = await dbRef.orderByChild('direccion').equalTo(direccionPropietario).once('value');
-        const abonosData = abonosSnapshot.val() || {};
-
-        // Obtener todos los registros de deuda/cargos para esta dirección
-        const deudasSnapshot = await deudasRef.orderByChild('direccion').equalTo(direccionPropietario).once('value');
-        const deudasData = deudasSnapshot.val() || {};
-
-        let transacciones = [];
-
-        // Procesar Abonos
-        Object.values(abonosData).forEach(abono => {
-            // Asegurarse que la dirección coincide exactamente (Firebase a veces es sensible a mayúsculas/minúsculas en queries si no se normaliza)
-            if (abono.direccion && abono.direccion.toLowerCase() === direccionPropietario.toLowerCase()) {
-                transacciones.push({
-                    fechaOriginal: new Date(abono.fecha), // Usar la fecha del abono para ordenar
-                    fechaMostrada: formatDate(abono.fecha),
-                    tipo: 'Abono',
-                    descripcion: `Abono (Comprobante: ${abono.comprobanteNumero || 'N/A'}) ${abono.comentario ? `- ${abono.comentario}` : ''}`,
-                    montoDebe: 0,
-                    montoHaber: parseFloat(abono.abono) || 0,
-                });
-            }
-        });
-
-        // Procesar Deudas/Cargos
-        Object.values(deudasData).forEach(deuda => {
-             if (deuda.direccion && deuda.direccion.toLowerCase() === direccionPropietario.toLowerCase()) {
-                // Asumimos que 'deuda.deuda' es el monto original de ESE cargo específico.
-                // 'deuda.ultimoCorte' o 'deuda.fechaRegistro' sería la fecha del cargo.
-                const fechaCargo = deuda.ultimoCorte || deuda.fechaRegistro; // Priorizar ultimoCorte si existe
-                transacciones.push({
-                    fechaOriginal: new Date(fechaCargo),
-                    fechaMostrada: formatDate(fechaCargo),
-                    tipo: 'Cargo/Deuda',
-                    descripcion: deuda.concepto || deuda.comentario || (deuda.esManual ? 'Deuda Manual' : 'Cargo del Sistema'),
-                    montoDebe: parseFloat(deuda.deuda) || 0, // Este debe ser el monto de ESTE cargo, no un acumulado.
-                    montoHaber: 0,
-                });
-            }
-        });
-
-        // Ordenar transacciones por fecha original
-        transacciones.sort((a, b) => a.fechaOriginal - b.fechaOriginal);
-
-        // Calcular saldo acumulado
-        let saldoAcumulado = 0;
-        const transaccionesConSaldo = transacciones.map(t => {
-            saldoAcumulado = saldoAcumulado + t.montoHaber - t.montoDebe;
-            return { ...t, saldo: saldoAcumulado };
-        });
-
-        const htmlEstadoDeCuenta = generarHtmlParaEstadoDeCuenta(nombrePropietario, direccionPropietario, transaccionesConSaldo);
-
-        const statementWindow = window.open('', '_blank');
-        if (statementWindow) {
-            statementWindow.document.write(htmlEstadoDeCuenta);
-            statementWindow.document.close();
-        } else {
-            alert("No se pudo abrir la ventana para el estado de cuenta. Verifique si su navegador está bloqueando ventanas emergentes.");
-        }
-
-    } catch (error) {
-        console.error("Error detallado al obtener datos para el estado de cuenta:", error);
-        throw error; // Propagar el error para que el listener lo maneje
-    }
-}
-
-function generarHtmlParaEstadoDeCuenta(nombre, direccion, transaccionesConSaldo) {
-    const hoy = new Date();
-    const fechaEmision = `${hoy.getDate().toString().padStart(2, '0')}/${(hoy.getMonth() + 1).toString().padStart(2, '0')}/${hoy.getFullYear()}`;
-
-    let saldoInicialCalculado = 0;
-    if (transaccionesConSaldo.length > 0) {
-        const primeraTransaccion = transaccionesConSaldo[0];
-        // El saldo ANTES de la primera transacción listada
-        saldoInicialCalculado = primeraTransaccion.saldo - (primeraTransaccion.montoHaber - primeraTransaccion.montoDebe);
-    }
-    const saldoFinal = transaccionesConSaldo.length > 0 ? transaccionesConSaldo[transaccionesConSaldo.length - 1].saldo : 0;
-
-    let rowsHtml = '';
-    transaccionesConSaldo.forEach(t => {
-        rowsHtml += `
-            <tr>
-                <td style="border: 1px solid #ddd; padding: 8px;">${t.fechaMostrada}</td>
-                <td style="border: 1px solid #ddd; padding: 8px;">${t.descripcion || 'N/A'}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${t.montoDebe > 0 ? '$' + t.montoDebe.toFixed(2) : '-'}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${t.montoHaber > 0 ? '$' + t.montoHaber.toFixed(2) : '-'}</td>
-                <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold; color: ${t.saldo < 0 ? 'red' : 'green'};">$${t.saldo.toFixed(2)}</td>
-            </tr>
-        `;
-    });
-
-    return `
-        <!DOCTYPE html>
-        <html lang="es">
-        <head>
-            <meta charset="UTF-8">
-            <title>Estado de Cuenta - ${nombre}</title>
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-            <style>
-                body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; color: #333; }
-                .print-button-container { display: flex; justify-content: center; gap: 10px; padding: 15px 0; background-color: #e9e9e9; }
-                .action-button { background-color: #4CAF50; color: white; padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; transition: background-color 0.3s; }
-                .action-button:hover { background-color: #45a049; }
-                .action-button.print { background-color: #007bff; }
-                .action-button.print:hover { background-color: #0056b3; }
-                .statement-container { max-width: 800px; margin: 20px auto; padding: 25px; background-color: white; border: 1px solid #ddd; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
-                .header { text-align: center; margin-bottom: 25px; border-bottom: 2px solid #eee; padding-bottom: 15px; }
-                .header h1 { margin: 0 0 5px 0; color: #333; font-size: 24px; }
-                .header p { margin: 0; color: #555; font-size: 14px; }
-                .info-section { margin-bottom: 20px; display: flex; justify-content: space-between; font-size: 14px;}
-                .info-section div p { margin: 4px 0; }
-                .transactions-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 13px; }
-                .transactions-table th, .transactions-table td { border: 1px solid #ccc; padding: 10px; text-align: left; }
-                .transactions-table th { background-color: #f0f0f0; font-weight: bold; }
-                .transactions-table td:nth-child(3), .transactions-table td:nth-child(4), .transactions-table td:nth-child(5) { text-align: right; }
-                .summary-section { text-align: right; margin-top: 25px; padding-top: 15px; border-top: 2px solid #eee;}
-                .summary-section p { margin: 5px 0; font-size: 16px; font-weight: bold; }
-                @media print {
-                    body { background-color: white; margin: 0; padding:0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                    .print-button-container { display: none !important; }
-                    .statement-container { margin: 0 auto; padding: 10px; border: none; box-shadow: none; max-width: 100%;}
-                }
-            </style>
-        </head>
-        <body>
-            <div class="print-button-container">
-                <button class="action-button print" onclick="window.print()"><i class="fas fa-print"></i> Imprimir</button>
-                <button class="action-button" onclick="descargarEstadoDeCuentaPDF('${nombre}', '${direccion}')"><i class="fas fa-file-pdf"></i> Descargar PDF</button>
-            </div>
-            <div class="statement-container" id="statementContentForPdf">
-                <div class="header">
-                    <h1>Administración de Cerro de Pasco</h1>
-                    <p>Estado de Cuenta Detallado</p>
-                </div>
-                <div class="info-section">
-                    <div>
-                        <p><strong>Propietario:</strong> ${nombre}</p>
-                        <p><strong>Dirección:</strong> ${direccion}</p>
-                    </div>
-                    <div>
-                        <p><strong>Fecha de Emisión:</strong> ${fechaEmision}</p>
-                        </div>
-                </div>
-                <table class="transactions-table">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Descripción</th>
-                            <th>Cargos (-)</th>
-                            <th>Abonos (+)</th>
-                            <th>Saldo</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td colspan="4" style="text-align: right; font-weight: bold;">Saldo Inicial:</td>
-                            <td style="text-align: right; font-weight: bold;">$${saldoInicialCalculado.toFixed(2)}</td>
-                        </tr>
-                        ${rowsHtml.length > 0 ? rowsHtml : '<tr><td colspan="5" style="text-align:center; padding: 20px;">No hay transacciones registradas.</td></tr>'}
-                    </tbody>
-                </table>
-                <div class="summary-section">
-                    <p>Saldo Final al ${fechaEmision}: $${saldoFinal.toFixed(2)}</p>
-                </div>
-                <p style="text-align: center; font-size: 12px; color: #777; margin-top: 30px;">
-                    Este es un estado de cuenta generado por el sistema. Para cualquier aclaración, contacte a la administración.
-                </p>
-            </div>
-            <script>
-                // Función para descargar PDF (necesita jsPDF y html2canvas en el <head> del HTML principal)
-                async function descargarEstadoDeCuentaPDF(nombre, direccion) {
-                    if (typeof jspdf === 'undefined' || typeof html2canvas === 'undefined') {
-                        alert('Las librerías para generar PDF (jsPDF, html2canvas) no están cargadas en la página principal. Intente imprimir.');
-                        console.warn('jsPDF or html2canvas not loaded in main page context.');
-                        return;
-                    }
-                    const { jsPDF } = jspdf; // Acceder a jsPDF a través de la variable global
-                    const content = document.getElementById('statementContentForPdf');
-                    
-                    // Ocultar botones temporalmente si estuvieran dentro de #statementContentForPdf (no es el caso aquí)
-                    // const buttonsToHide = content.querySelector('.print-button-container');
-                    // if(buttonsToHide) buttonsToHide.style.visibility = 'hidden';
-
-                    try {
-                        const canvas = await html2canvas(content, { scale: 2, useCORS: true });
-                        const imgData = canvas.toDataURL('image/png');
-                        const pdf = new jsPDF({
-                            orientation: 'p',
-                            unit: 'mm',
-                            format: 'a4',
-                            putOnlyUsedFonts:true
-                        });
-                        const imgProps = pdf.getImageProperties(imgData);
-                        const pdfWidth = pdf.internal.pageSize.getWidth() - 20; // Margen
-                        const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-                        let currentHeight = 0;
-                        const pageHeight = pdf.internal.pageSize.getHeight() - 20; // Margen
-
-                        if (pdfHeight <= pageHeight) {
-                           pdf.addImage(imgData, 'PNG', 10, 10, pdfWidth, pdfHeight);
-                        } else { // Manejo básico de múltiples páginas
-                           let tempCanvas = document.createElement('canvas');
-                           let tempCtx = tempCanvas.getContext('2d');
-                           tempCanvas.width = canvas.width;
-                           tempCanvas.height = pageHeight * (canvas.width / pdfWidth) ; // altura de una página en canvas pixels
-
-                           for (let y = 0; y < canvas.height; y += tempCanvas.height) {
-                               if (y > 0) pdf.addPage();
-                               tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
-                               tempCtx.drawImage(canvas, 0, y, canvas.width, tempCanvas.height, 0, 0, tempCanvas.width, tempCanvas.height);
-                               let pageImgData = tempCanvas.toDataURL('image/png');
-                               pdf.addImage(pageImgData, 'PNG', 10, 10, pdfWidth, (tempCanvas.height * pdfWidth) / tempCanvas.width);
-                           }
-                           tempCanvas = null; // liberar memoria
-                        }
-                        
-                        const nombreArchivo = \`Estado_Cuenta_\${nombre.replace(/[^a-zA-Z0-9]/g, '_')}_\${direccion.replace(/[^a-zA-Z0-9]/g, '_')}.pdf\`;
-                        pdf.save(nombreArchivo);
-                    } catch (e) {
-                        console.error("Error al generar PDF:", e);
-                        alert("Hubo un error al generar el PDF.");
-                    } finally {
-                        // if(buttonsToHide) buttonsToHide.style.visibility = 'visible';
-                    }
-                }
-            </script>
-        </body>
-        </html>
-    `;
-}
-// Coloca esto en tu <script> principal, fuera de otros event listeners
-// Asegúrate que el ID 'resultadosConsulta' coincide con el div donde se muestran los resultados de la consulta.
-const resultadosConsultaDiv = document.getElementById('resultadosConsulta');
-
-if (resultadosConsultaDiv) {
-    resultadosConsultaDiv.addEventListener('click', async function(event) {
-        // Usamos .closest() para asegurarnos que el clic fue en el botón o un ícono dentro de él
-        const targetButton = event.target.closest('.btn-estado-cuenta');
-        if (targetButton) {
-            event.preventDefault(); // Prevenir cualquier acción por defecto si fuera un <a>
-            const direccion = targetButton.dataset.direccion;
-            const nombre = targetButton.dataset.nombre;
-
-            // Guardar el texto original del botón y deshabilitarlo
-            const originalButtonText = targetButton.innerHTML;
-            targetButton.innerHTML = '<i class="fas fa-spinner fa-spin mr-1"></i> Cargando...';
-            targetButton.disabled = true;
-
-            try {
-                // Llamamos a la función que mostrará el estado de cuenta
-                await mostrarEstadoDeCuenta(nombre, direccion);
-            } catch (error) {
-                console.error("Error al intentar generar/mostrar estado de cuenta:", error);
-                // Aquí podrías usar tu función global showMessage si la tienes,
-                // o un alert, o actualizar un div de mensajes específico.
-                alert("Error al generar el estado de cuenta. Por favor, revise la consola para más detalles.");
-            } finally {
-                // Restaurar el botón
-                targetButton.innerHTML = originalButtonText;
-                targetButton.disabled = false;
-            }
-        }
-    });
-} else {
-    console.warn("El elemento con ID 'resultadosConsulta' no fue encontrado. El listener para 'Estado de Cuenta' no se adjuntará.");
-}
-
-async function mostrarEstadoDeCuenta(nombrePropietario, direccionPropietario) {
-    try {
-        // 1. Obtener Abonos
-        const abonosSnapshot = await dbRef
-            .orderByChild('direccion')
-            .equalTo(direccionPropietario)
-            .once('value');
-        const abonosData = abonosSnapshot.val() || {};
-
-        // 2. Obtener Deudas/Cargos
-        const deudasSnapshot = await deudasRef
-            .orderByChild('direccion')
-            .equalTo(direccionPropietario)
-            .once('value');
-        const deudasData = deudasSnapshot.val() || {};
-
-        let transacciones = [];
-
-        // 3. Procesar Abonos y normalizarlos como transacciones
-        Object.values(abonosData).forEach(abono => {
-            // Doble verificación por si la query de Firebase trae algo extra (aunque no debería)
-            // y para normalizar la comparación de dirección si fuera necesario.
-            if (abono.direccion && abono.direccion.toLowerCase() === direccionPropietario.toLowerCase()) {
-                transacciones.push({
-                    // Usamos la fecha del abono como fecha principal para la transacción
-                    fechaOriginal: new Date(abono.fecha),
-                    fechaMostrada: formatDate(abono.fecha), // Tu función formatDate existente
-                    tipo: 'Abono',
-                    descripcion: `Abono (Comprobante: ${abono.comprobanteNumero || 'N/A'}) ${abono.comentario ? `- ${abono.comentario}`.substring(0,50) : ''}`, // Truncar comentario largo
-                    montoDebe: 0,
-                    montoHaber: parseFloat(abono.abono) || 0,
-                });
-            }
-        });
-
-        // 4. Procesar Deudas/Cargos y normalizarlos como transacciones
-        Object.values(deudasData).forEach(deuda => {
-            if (deuda.direccion && deuda.direccion.toLowerCase() === direccionPropietario.toLowerCase()) {
-                // La fecha del cargo puede ser 'ultimoCorte' o 'fechaRegistro'
-                const fechaCargo = deuda.ultimoCorte || deuda.fechaRegistro;
-                transacciones.push({
-                    fechaOriginal: new Date(fechaCargo),
-                    fechaMostrada: formatDate(fechaCargo), // Tu función formatDate existente
-                    tipo: 'Cargo/Deuda',
-                    // Usar el campo 'concepto' si lo implementaste, sino el comentario.
-                    descripcion: deuda.concepto || deuda.comentario || (deuda.esManual ? 'Deuda Manual Registrada' : 'Cargo del Sistema'),
-                    // IMPORTANTE: 'deuda.deuda' DEBE ser el monto original de ESTE cargo específico.
-                    // Si es un acumulado, este estado de cuenta no será preciso en los cargos.
-                    montoDebe: parseFloat(deuda.deuda) || 0,
-                    montoHaber: 0,
-                });
-            }
-        });
-
-        // 5. Ordenar todas las transacciones por fecha
-        transacciones.sort((a, b) => a.fechaOriginal - b.fechaOriginal);
-
-        // 6. Calcular saldo acumulado para cada transacción
-        let saldoAcumulado = 0;
-        const transaccionesConSaldo = transacciones.map(t => {
-            // El saldo se calcula DESPUÉS de aplicar la transacción actual
-            const saldoPrevio = saldoAcumulado;
-            saldoAcumulado = saldoPrevio + t.montoHaber - t.montoDebe;
-            return { ...t, saldo: saldoAcumulado, saldoPrevioParaCalculoInicial: saldoPrevio };
-        });
-
-        // 7. Generar el HTML para el estado de cuenta
-        const htmlEstadoDeCuenta = generarHtmlParaEstadoDeCuenta(nombrePropietario, direccionPropietario, transaccionesConSaldo);
-
-        // 8. Mostrar en una nueva ventana/pestaña
-        const statementWindow = window.open('', '_blank');
-        if (statementWindow) {
-            statementWindow.document.write(htmlEstadoDeCuenta);
-            statementWindow.document.close(); // Necesario para que la carga finalice
-            statementWindow.focus(); // Traer la nueva ventana al frente
-        } else {
-            // Fallback si el navegador bloquea popups
-            alert("No se pudo abrir la ventana para el estado de cuenta. Por favor, revise si su navegador está bloqueando ventanas emergentes y permita las ventanas emergentes para este sitio.");
-        }
-
-    } catch (error) {
-        console.error("Error detallado al obtener o procesar datos para el estado de cuenta:", error);
-        throw error; // Propagar el error para que el listener del botón lo maneje
-    }
-}
-
-function generarHtmlParaEstadoDeCuenta(nombre, direccion, transaccionesConSaldo) {
-    const hoy = new Date();
-    const fechaEmision = `${hoy.getDate().toString().padStart(2, '0')}/${(hoy.getMonth() + 1).toString().padStart(2, '0')}/${hoy.getFullYear()}`;
-
-    // El saldo inicial es el saldo ANTES de la primera transacción listada.
-    // Si no hay transacciones, el saldo inicial es 0.
-    // Si hay transacciones, el saldo inicial es el 'saldoPrevioParaCalculoInicial' de la primera transacción.
-    let saldoInicialCalculado = 0;
-    if (transaccionesConSaldo.length > 0) {
-        // El saldo antes de la primera transacción es su saldo - (su haber - su debe)
-        const primeraTransaccion = transaccionesConSaldo[0];
-        saldoInicialCalculado = primeraTransaccion.saldo - (primeraTransaccion.montoHaber - primeraTransaccion.montoDebe);
-    }
-
-    const saldoFinal = transaccionesConSaldo.length > 0 ? transaccionesConSaldo[transaccionesConSaldo.length - 1].saldo : saldoInicialCalculado;
-
-    let rowsHtml = '';
-    if (transaccionesConSaldo.length > 0) {
-        transaccionesConSaldo.forEach(t => {
-            rowsHtml += `
-                <tr>
-                    <td style="border: 1px solid #ddd; padding: 8px; white-space: nowrap;">${t.fechaMostrada}</td>
-                    <td style="border: 1px solid #ddd; padding: 8px;">${t.descripcion || 'N/A'}</td>
-                    <td style="border: 1px solid #ddd; padding: 8px; text-align: right; white-space: nowrap;">${t.montoDebe > 0 ? '$' + t.montoDebe.toFixed(2) : '-'}</td>
-                    <td style="border: 1px solid #ddd; padding: 8px; text-align: right; white-space: nowrap;">${t.montoHaber > 0 ? '$' + t.montoHaber.toFixed(2) : '-'}</td>
-                    <td style="border: 1px solid #ddd; padding: 8px; text-align: right; font-weight: bold; white-space: nowrap; color: ${t.saldo < 0 ? '#c0392b' : '#27ae60'};">$${t.saldo.toFixed(2)}</td>
-                </tr>
-            `;
-        });
-    } else {
-        rowsHtml = '<tr><td colspan="5" style="text-align:center; padding: 20px; border: 1px solid #ddd;">No hay transacciones registradas para esta propiedad.</td></tr>';
-    }
-
-
-    // El HTML para la nueva ventana/pestaña
-    return `
-        <!DOCTYPE html>
-        <html lang="es">
-        <head>
-            <meta charset="UTF-8">
-            <title>Estado de Cuenta - ${nombre}</title>
-            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-            <style>
-                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #f8f9fa; color: #343a40; font-size: 14px; line-height: 1.6; }
-                .print-button-container { position: fixed; top: 0; left:0; right:0; display: flex; justify-content: center; gap: 15px; padding: 10px 0; background-color: #343a40; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 1000; }
-                .action-button { background-color: #007bff; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 14px; transition: background-color 0.2s ease-in-out; display: inline-flex; align-items: center; gap: 8px; }
-                .action-button:hover { background-color: #0056b3; }
-                .action-button.pdf { background-color: #28a745; }
-                .action-button.pdf:hover { background-color: #1e7e34; }
-                .statement-container { max-width: 850px; margin: 70px auto 20px auto; padding: 30px; background-color: white; border: 1px solid #dee2e6; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
-                .header { text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 1px solid #dee2e6; }
-                .header h1 { margin: 0 0 8px 0; color: #0056b3; font-size: 26px; font-weight: 600; }
-                .header p { margin: 0; color: #6c757d; font-size: 15px; }
-                .info-section { margin-bottom: 25px; display: flex; justify-content: space-between; font-size: 15px; padding-bottom: 15px; border-bottom: 1px dashed #e0e0e0;}
-                .info-section div p { margin: 5px 0; line-height: 1.7; }
-                .info-section strong { color: #495057; }
-                .transactions-table { width: 100%; border-collapse: collapse; margin-top: 10px; margin-bottom: 25px; font-size: 14px; }
-                .transactions-table th, .transactions-table td { border: 1px solid #e0e0e0; padding: 10px 12px; text-align: left; }
-                .transactions-table th { background-color: #f1f3f5; font-weight: 600; color: #495057; }
-                .transactions-table td:nth-child(3), .transactions-table td:nth-child(4), .transactions-table td:nth-child(5) { text-align: right; } /* Alineación derecha para montos */
-                .summary-section { text-align: right; margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6;}
-                .summary-section p { margin: 8px 0; font-size: 17px; font-weight: 600; }
-                .summary-section p span { color: #0056b3; }
-                .footer-note { text-align: center; font-size: 12px; color: #6c757d; margin-top: 40px; padding-top: 20px; border-top: 1px dashed #e0e0e0; }
-                @media print {
-                    body { background-color: white; margin: 0; padding:0; font-size: 12pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                    .print-button-container { display: none !important; }
-                    .statement-container { margin: 20px; padding: 0; border: none; box-shadow: none; max-width: 100%; border-radius: 0; }
-                    .header h1 {font-size: 20pt;} .header p {font-size: 10pt;}
-                    .info-section {font-size: 10pt;}
-                    .transactions-table {font-size: 9pt;} .transactions-table th, .transactions-table td {padding: 6px 8px;}
-                    .summary-section p {font-size: 11pt;}
-                    .footer-note {font-size: 8pt;}
-                }
-            </style>
-        </head>
-        <body>
-            <div class="print-button-container">
-                <button class="action-button" onclick="window.print()"><i class="fas fa-print"></i> Imprimir Estado</button>
-                <button class="action-button pdf" onclick="descargarEstadoDeCuentaPDF('${nombre}', '${direccion}')"><i class="fas fa-file-pdf"></i> Descargar PDF</button>
-            </div>
-
-            <div class="statement-container" id="statementContentForPdf">
-                <div class="header">
-                    <h1>Administración de Cerro de Pasco</h1>
-                    <p>Estado de Cuenta Detallado</p>
-                </div>
-                <div class="info-section">
-                    <div>
-                        <p><strong>Propietario:</strong> ${nombre}</p>
-                        <p><strong>Dirección:</strong> ${direccion}</p>
-                    </div>
-                    <div>
-                        <p><strong>Fecha de Emisión:</strong> ${fechaEmision}</p>
-                        </div>
-                </div>
-
-                <h3 style="font-size: 18px; color: #333; margin-top: 30px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">Detalle de Movimientos</h3>
-                <table class="transactions-table">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Descripción</th>
-                            <th>Cargos (-)</th>
-                            <th>Abonos (+)</th>
-                            <th>Saldo</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td colspan="4" style="text-align: right; font-weight: bold; padding: 10px;">Saldo Inicial:</td>
-                            <td style="text-align: right; font-weight: bold; padding: 10px;">$${saldoInicialCalculado.toFixed(2)}</td>
-                        </tr>
-                        ${rowsHtml}
-                    </tbody>
-                </table>
-
-                <div class="summary-section">
-                    <p>Saldo Final al ${fechaEmision}: <span>$${saldoFinal.toFixed(2)}</span></p>
-                </div>
-
-                <div class="footer-note">
-                    Este es un estado de cuenta generado automáticamente. Para cualquier duda o aclaración, por favor contacte a la administración.
-                </div>
-            </div>
-
-            <script>
-                // Es crucial que jsPDF y html2canvas estén cargados en el HTML principal para que esto funcione.
-                async function descargarEstadoDeCuentaPDF(nombre, direccion) {
-                    if (typeof jspdf === 'undefined' || typeof html2canvas === 'undefined') {
-                        alert('Error: Las librerías jsPDF y/o html2canvas no están cargadas en la página principal. No se puede generar el PDF.');
-                        console.warn('jsPDF or html2canvas not found in the global scope of the main page.');
-                        return;
-                    }
-                    const { jsPDF } = jspdf; // Accede a la librería a través de la variable global jspdf (minúscula) que es como se expone
-                    const contentToCapture = document.getElementById('statementContentForPdf');
-                    
-                    // Temporalmente quitar los botones de la nueva ventana para que no salgan en el PDF
-                    const buttonsInNewWindow = document.querySelector('.print-button-container');
-                    if(buttonsInNewWindow) buttonsInNewWindow.style.display = 'none';
-
-                    try {
-                        const canvas = await html2canvas(contentToCapture, {
-                            scale: 2, // Mejora la calidad de la imagen
-                            useCORS: true, // Por si hay imágenes externas (aunque aquí no parece haber)
-                            logging: false // Desactiva logs de html2canvas en consola
-                        });
-                        
-                        const imgData = canvas.toDataURL('image/png');
-                        const pdf = new jsPDF({
-                            orientation: 'portrait', // 'p' o 'portrait'
-                            unit: 'mm',
-                            format: 'a4',
-                            putOnlyUsedFonts: true,
-                            floatPrecision: 16 // default is 16
-                        });
-
-                        const imgProps = pdf.getImageProperties(imgData);
-                        const pdfWidth = pdf.internal.pageSize.getWidth();
-                        const pdfHeight = pdf.internal.pageSize.getHeight();
-                        const margin = 10; // Margen en mm
-
-                        const contentWidth = pdfWidth - (2 * margin);
-                        const contentHeight = (imgProps.height * contentWidth) / imgProps.width;
-                        
-                        let heightLeft = contentHeight;
-                        let position = margin; // Posición Y inicial
-
-                        pdf.addImage(imgData, 'PNG', margin, position, contentWidth, contentHeight);
-                        heightLeft -= (pageHeight - margin - margin); // pageHeight no está definida, usar pdfHeight
-
-                        while (heightLeft > 0) {
-                            position = heightLeft - contentHeight + margin; // No, position debe ser negativo para la siguiente página
-                            pdf.addPage();
-                            pdf.addImage(imgData, 'PNG', margin, position, contentWidth, contentHeight); // Esta lógica de multipágina es compleja con html2canvas
-                            heightLeft -= (pdfHeight - margin - margin); // La imagen es una sola, así que esto no funciona bien para multipágina real del contenido.
-                                                                      // Para multipágina real, se necesitaría renderizar secciones.
-                        }
-                         // La lógica de multipágina anterior es incorrecta para una sola imagen.
-                         // Si la imagen es más alta que la página, jsPDF la cortará o escalará.
-                         // Para un multipágina real a partir de HTML largo, se debe dividir el HTML o usar técnicas avanzadas.
-                         // Para este caso, una sola imagen escalada es lo más simple.
-                         // La lógica simple de addImage ya escala si es necesario. Si es más alta que la página, se cortará.
-                         // Para un mejor multipágina, considera dividir el contenido en el HTML antes de pasarlo a html2canvas por secciones.
-
-                        const nombreArchivoLimpio = \`Estado_Cuenta_\${nombre.replace(/[^a-zA-Z0-9]/g, '_')}_\${direccion.replace(/[^a-zA-Z0-9]/g, '_')}.pdf\`;
-                        pdf.save(nombreArchivoLimpio);
-
-                    } catch (e) {
-                        console.error("Error crítico al generar PDF:", e);
-                        alert("Hubo un error al generar el PDF. Detalles en la consola.");
-                    } finally {
-                         if(buttonsInNewWindow) buttonsInNewWindow.style.display = 'flex'; // Restaurar botones
-                    }
-                }
-            <\/script>
-        </body>
-        </html>
-    `;
-}
-
     // Función para obtener el nombre asociado a una dirección existente
 async function getNombreRegistradoParaDireccion(direccionAconsultar) {
     try {
@@ -1861,32 +1300,12 @@ document.getElementById('btnEliminar').addEventListener('click', async function(
 });
 
         // Consultar abonos
-// Consultar abonos
 document.getElementById('btnConsultar').addEventListener('click', async function() {
-    const nombreInput = document.getElementById('consultaNombre');
-    const direccionInput = document.getElementById('consultaDireccion');
-    const resultadosDiv = document.getElementById('resultadosConsulta'); // Asegúrate que este ID es el correcto para el div de resultados
-
-    const nombre = nombreInput.value.trim().toLowerCase();
-    const direccion = direccionInput.value.trim().toLowerCase();
-
-    // Limpiar resultados anteriores y mensajes de error
-    if (resultadosDiv) {
-        resultadosDiv.innerHTML = '<p class="text-gray-500 text-center py-8">Procesando consulta...</p>';
-    } else {
-        console.error("El DIV 'resultadosConsulta' no fue encontrado. Verifica el ID.");
-        return;
-    }
-    // Ocultar/limpiar mensajes de error/éxito de esta sección si tienes uno específico
-    // showMessage('tuMensajeDeConsultaId', '', 'hidden');
-
+    const nombre = document.getElementById('consultaNombre').value.trim().toLowerCase();
+    const direccion = document.getElementById('consultaDireccion').value.trim().toLowerCase();
 
     if (!nombre && !direccion) {
-        if (resultadosDiv) {
-            resultadosDiv.innerHTML = '<p class="text-red-500 text-center py-8">Ingrese al menos un criterio de búsqueda (nombre o dirección).</p>';
-        }
-        // Podrías usar tu función showMessage aquí también si es global
-        // showMessage('resultadosConsulta', 'Ingrese al menos un criterio de búsqueda (nombre o dirección)', 'error');
+        showMessage('resultadosConsulta', 'Ingrese al menos un criterio de búsqueda (nombre o dirección)', 'error');
         return;
     }
 
@@ -1899,109 +1318,75 @@ document.getElementById('btnConsultar').addEventListener('click', async function
         const abonos = abonosSnapshot.val() || {};
         const deudas = deudasSnapshot.val() || {};
 
-        // Convertir a arrays y agregar keys si fuera necesario para otra lógica,
-        // pero para la agrupación, el Object.values es suficiente más adelante.
-        const abonosArray = Object.values(abonos); // Object.entries(abonos).map(([key, value]) => ({ ...value, firebaseKey: key }));
-        const deudasArray = Object.values(deudas); // Object.entries(deudas).map(([key, value]) => ({ ...value, firebaseKey: key }));
+        // Convertir a arrays y agregar keys
+        const abonosArray = Object.entries(abonos).map(([key, value]) => ({ ...value, firebaseKey: key }));
+        const deudasArray = Object.entries(deudas).map(([key, value]) => ({ ...value, firebaseKey: key }));
 
-        // Filtrar primero por separado para mayor claridad antes de agrupar
-        let abonosFiltrados = abonosArray.filter(item => {
-            const itemNombre = (item.nombre || '').toLowerCase();
-            const itemDireccion = (item.direccion || '').toLowerCase();
-            if (nombre && !direccion) return itemNombre.includes(nombre);
-            if (direccion && !nombre) return itemDireccion.includes(direccion);
-            if (nombre && direccion) return itemNombre.includes(nombre) && itemDireccion.includes(direccion);
-            return false; // No debería llegar aquí si la validación inicial funciona
+        // Filtrar resultados correctamente
+        let resultados = [...abonosArray, ...deudasArray].filter(item => {
+            // Si solo hay nombre, filtrar por nombre
+            if (nombre && !direccion) {
+                return item.nombre?.toLowerCase().includes(nombre);
+            }
+            // Si solo hay dirección, filtrar por dirección
+            else if (direccion && !nombre) {
+                return item.direccion?.toLowerCase().includes(direccion);
+            }
+            // Si hay ambos, filtrar por ambos
+            else {
+                return item.nombre?.toLowerCase().includes(nombre) && 
+                       item.direccion?.toLowerCase().includes(direccion);
+            }
         });
 
-        let deudasFiltradas = deudasArray.filter(item => {
-            const itemNombre = (item.nombre || '').toLowerCase();
-            const itemDireccion = (item.direccion || '').toLowerCase();
-            if (nombre && !direccion) return itemNombre.includes(nombre);
-            if (direccion && !nombre) return itemDireccion.includes(direccion);
-            if (nombre && direccion) return itemNombre.includes(nombre) && itemDireccion.includes(direccion);
-            return false;
-        });
-
+        // Resto del código para agrupar y mostrar resultados...
         const agrupados = {};
 
-        // Procesar abonos filtrados
-        abonosFiltrados.forEach(abono => {
-            const key = `${(abono.nombre || 'N/A').toLowerCase()}|${(abono.direccion || 'N/A').toLowerCase()}`;
+        // Procesar abonos y deudas
+        resultados.forEach(item => {
+            const key = `${item.nombre}|${item.direccion}`;
             if (!agrupados[key]) {
                 agrupados[key] = {
-                    nombre: abono.nombre,
-                    direccion: abono.direccion,
-                    abonos: [],
-                    totalAbonos: 0,
-                    deuda: 0 // Inicializar deuda
-                };
-            }
-            agrupados[key].abonos.push(abono);
-            agrupados[key].totalAbonos += parseFloat(abono.abono) || 0;
-        });
-
-        // Procesar deudas filtradas y actualizar/crear grupos
-        deudasFiltradas.forEach(deuda => {
-            const key = `${(deuda.nombre || 'N/A').toLowerCase()}|${(deuda.direccion || 'N/A').toLowerCase()}`;
-            if (!agrupados[key]) {
-                // Si no existe un grupo por un abono previo, se crea uno a partir de la deuda
-                agrupados[key] = {
-                    nombre: deuda.nombre,
-                    direccion: deuda.direccion,
+                    nombre: item.nombre,
+                    direccion: item.direccion,
                     abonos: [],
                     totalAbonos: 0,
                     deuda: 0
                 };
             }
-            // Aquí asumimos que `deuda.deuda` es el monto total de la deuda para esa dirección.
-            // Si tienes múltiples registros de deuda por dirección que deben sumarse,
-            // necesitarías una lógica similar a la de totalAbonos.
-            // Para este resumen, usualmente se muestra la deuda *actual* total.
-            agrupados[key].deuda += parseFloat(deuda.deuda) || 0;
+
+            if (item.abono) {
+                agrupados[key].abonos.push(item);
+                agrupados[key].totalAbonos += item.abono;
+            } 
+            if (item.deuda) {
+                agrupados[key].deuda = item.deuda;
+            }
         });
 
-
+        // Mostrar resultados
+        const resultadosDiv = document.getElementById('resultadosConsulta');
         if (Object.keys(agrupados).length === 0) {
-            resultadosDiv.innerHTML = '<p class="text-gray-500 text-center py-8">No se encontraron resultados que coincidan con los criterios.</p>';
+            resultadosDiv.innerHTML = '<p class="text-gray-500 text-center py-8">No se encontraron resultados</p>';
             return;
         }
 
-        let html = '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200 shadow border-b border-gray-200 sm:rounded-lg">';
-        // MODIFICADO: Añadida columna "Acciones"
-        html += '<thead class="bg-gray-100"><tr>';
-        html += '<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Nombre</th>';
-        html += '<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Dirección</th>';
-        html += '<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Total Abonos</th>';
-        html += '<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Deuda Acumulada</th>';
-        html += '<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Balance</th>';
-        html += '<th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Acciones</th>';
+        let html = '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200">';
+        html += '<thead class="bg-gray-50"><tr>';
+        html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>';
+        html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dirección</th>';
+        html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Abonos</th>';
+        html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deuda</th>';
+        html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>';
         html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
 
         Object.values(agrupados).forEach(grupo => {
-            // Asegurarse que los datos principales (nombre, dirección) existen para evitar 'undefined'
-            const nombreGrupo = grupo.nombre || 'No especificado';
-            const direccionGrupo = grupo.direccion || 'No especificada';
-            const totalAbonosGrupo = grupo.totalAbonos || 0;
-            const deudaGrupo = grupo.deuda || 0;
-            const balance = totalAbonosGrupo - deudaGrupo;
-
-            html += `<tr class="hover:bg-gray-50 transition-colors duration-150">`;
-            html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">${nombreGrupo}</td>`;
-            html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${direccionGrupo}</td>`;
-            html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-800">$${totalAbonosGrupo.toFixed(2)}</td>`;
-            html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${deudaGrupo > 0 ? 'text-red-600 font-semibold deuda-alta' : 'text-gray-800'}">$${deudaGrupo.toFixed(2)}</td>`;
-            html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${balance < 0 ? 'text-red-700 font-bold' : 'text-green-700 font-bold'}">$${balance.toFixed(2)}</td>`;
-            // NUEVO: Celda con el botón para "Ver Estado"
-            html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        <button
-                            class="text-indigo-600 hover:text-indigo-800 hover:underline focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 rounded-md px-2 py-1 transition-all duration-150 ease-in-out btn-estado-cuenta"
-                            data-direccion="${direccionGrupo}"
-                            data-nombre="${nombreGrupo}"
-                            title="Generar Estado de Cuenta para ${nombreGrupo} (${direccionGrupo})">
-                            <i class="fas fa-file-invoice-dollar mr-1"></i> Ver Estado
-                        </button>
-                     </td>`;
+            html += `<tr class="hover:bg-gray-50">`;
+            html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.nombre}</td>`;
+            html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.direccion}</td>`;
+            html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$${grupo.totalAbonos.toFixed(2)}</td>`;
+            html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${grupo.deuda > 0 ? 'deuda-alta' : 'text-gray-900'}">$${grupo.deuda.toFixed(2)}</td>`;
+            html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${(grupo.totalAbonos - grupo.deuda) < 0 ? 'text-red-600' : 'text-green-600'}">$${(grupo.totalAbonos - grupo.deuda).toFixed(2)}</td>`;
             html += `</tr>`;
         });
 
@@ -2010,12 +1395,10 @@ document.getElementById('btnConsultar').addEventListener('click', async function
 
     } catch (error) {
         console.error('Error en la consulta:', error);
-        if (resultadosDiv) {
-            resultadosDiv.innerHTML = '<p class="text-red-600 text-center py-8">Error al realizar la consulta. Intente de nuevo más tarde.</p>';
-        }
-        // showMessage('resultadosConsulta', 'Error al realizar la consulta', 'error'); // O un ID de mensaje específico
+        showMessage('resultadosConsulta', 'Error al realizar la consulta', 'error');
     }
 });
+
         // Generar corte de deudas
         document.getElementById('btnGenerarCorte').addEventListener('click', async function() {
     if (!await validarGenerarCorte()) return;
