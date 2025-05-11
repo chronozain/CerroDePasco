@@ -992,10 +992,10 @@ localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
 
         // Registrar un nuevo abono
 document.getElementById('btnAlta').addEventListener('click', async function() {
-    const isValid = await validarAlta();
-    if (!isValid) {
+    // **Ejecutar validación**
+    if (!await validarAlta()) {
         showMessage('altaMessage', 'Error: Código incorrecto. Registro cancelado.', 'error');
-        return; // 🔹 Detiene toda la ejecución si el código es incorrecto
+        return; // 🔹 Detiene la ejecución completa si el código no es válido
     }
 
     const db = await getDatabase();
@@ -1017,11 +1017,11 @@ document.getElementById('btnAlta').addEventListener('click', async function() {
     };
 
     try {
-        // **Guardar el abono en Firebase**
+        // **Registrar abono en Firebase**
         const abonoId = await saveAbono(nuevoAbono);
         nuevoAbono.id = abonoId;
 
-        // **Actualizar la deuda si existe**
+        // **Actualizar deuda si existe**
         let deudaEncontrada = false;
         for (const key in deudasDb) {
             if (deudasDb[key].direccion.toLowerCase() === direccion.toLowerCase()) {
@@ -1035,7 +1035,7 @@ document.getElementById('btnAlta').addEventListener('click', async function() {
 
                 await saveDeuda(updatedDeuda);
 
-                // **Actualizar en `localStorage`**
+                // **Actualizar `localStorage`**
                 const localDeudas = JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || [];
                 const updatedLocalDeudas = localDeudas.map(d =>
                     d.direccion.toLowerCase() === direccion.toLowerCase() ? updatedDeuda : d
@@ -1046,21 +1046,21 @@ document.getElementById('btnAlta').addEventListener('click', async function() {
             }
         }
 
-        // **Si no hay deuda registrada para esta dirección, podríamos crear un registro con deuda 0**
+        // **Si no hay deuda registrada, no se hace nada**
         if (!deudaEncontrada) {
             console.log(`No hay deuda registrada para la dirección "${direccion}". No se realiza ninguna acción.`);
         }
 
-        // **Guardar respaldo en `localStorage`**
+        // **Registrar en `localStorage`**
         const localDb = JSON.parse(localStorage.getItem(DB_KEY)) || [];
         localDb.push(nuevoAbono);
         localStorage.setItem(DB_KEY, JSON.stringify(localDb));
 
-        // **Mostrar comprobante SOLO si el código de acceso es válido**
+        // **Mostrar comprobante solo si el código es válido**
         mostrarComprobante(nuevoAbono);
         showMessage('altaMessage', 'Abono registrado con éxito', 'success');
 
-        // **Limpiar campos del formulario**
+        // **Limpiar el formulario**
         document.getElementById('abono').value = '';
         document.getElementById('fecha').value = '';
         document.getElementById('codigo').value = '';
