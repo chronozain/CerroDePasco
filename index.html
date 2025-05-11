@@ -1028,7 +1028,65 @@ localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
         }
 
         // Registrar un nuevo abono
-        document.getElementById('btnAlta').addEventListener('click', async function() {
+        // Evento click del botón Registrar Abono (versión corregida)
+document.getElementById('btnAlta').addEventListener('click', async () => {
+    // 1. Validación inicial del código de acceso
+    const codigo = document.getElementById('codigo').value;
+    if (!validarCodigoAcceso(codigo)) {
+        mostrarError('codigoError', 'Código de acceso incorrecto');
+        document.getElementById('codigo').classList.add('input-error');
+        return; // Detiene ejecución inmediatamente
+    }
+
+    // 2. Validación del resto de campos
+    if (!validarCamposAbono()) return;
+
+    try {
+        // 3. Obtener y preparar datos
+        const abonoData = {
+            nombre: document.getElementById('nombre').value.trim(),
+            direccion: document.getElementById('direccion').value.trim(),
+            monto: parseFloat(document.getElementById('abono').value),
+            fecha: document.getElementById('fecha').value,
+            comentario: document.getElementById('comentario').value.trim(),
+            timestamp: new Date().toISOString()
+        };
+
+        // 4. Registrar en Firebase
+        const newAbonoRef = firebase.database().ref('abonos').push();
+        await newAbonoRef.set(abonoData);
+
+        // 5. Feedback visual y limpieza
+        mostrarMensajeExito('Abono registrado correctamente');
+        limpiarCamposAbono();
+        
+    } catch (error) {
+        console.error('Error al registrar:', error);
+        mostrarError('altaMessage', 'Error al registrar abono: ' + error.message);
+    }
+});
+
+// Función de validación mejorada
+function validarCodigoAcceso(codigo) {
+    const codigoGuardado = localStorage.getItem('codigoAcceso');
+    return codigo === codigoGuardado && codigo.length === 6;
+}
+
+// Bloquear envío automático del formulario
+document.getElementById('altaForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+});
+
+// Función para limpiar campos después del registro
+function limpiarCamposAbono() {
+    ['nombre', 'direccion', 'abono', 'fecha', 'codigo', 'comentario'].forEach(id => {
+        document.getElementById(id).value = '';
+        document.getElementById(id).classList.remove('input-error');
+    });
+    document.getElementById('altaMessage').classList.add('hidden');
+}
+
+     /*   document.getElementById('btnAlta').addEventListener('click', async function() {
             if (!validarAlta()) return;
 
             const db = getDatabase();
@@ -1047,7 +1105,7 @@ localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
                 fecha,
                 comentario: document.getElementById('comentario').value.trim(), // Nuevo campo
                 fechaRegistro: new Date().toISOString()
-            };
+            };*/
 
             db.push(nuevoAbono);
             saveDatabase(db);
