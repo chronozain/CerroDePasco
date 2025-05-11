@@ -991,10 +991,10 @@ localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
         }
 
         // Registrar un nuevo abono
-       document.getElementById('btnAlta').addEventListener('click', async function() {
+document.getElementById('btnAlta').addEventListener('click', async function() {
     if (!await validarAlta()) {
         showMessage('altaMessage', 'Error: Código incorrecto. Registro cancelado.', 'error');
-        return;
+        return; // 🔹 Detiene la ejecución si la validación falla
     }
 
     const db = await getDatabase();  // 🔹 Obtiene la base de datos de abonos
@@ -1016,11 +1016,11 @@ localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
     };
 
     try {
-        // Guardar abono en Firebase
+        // **Guardar el abono en Firebase**
         const abonoId = await saveAbono(nuevoAbono);
         nuevoAbono.id = abonoId;
 
-        // **Actualizar deuda** si existe en la base de datos
+        // **Actualizar la deuda si existe**
         let deudaEncontrada = false;
         for (const key in deudasDb) {
             if (deudasDb[key].direccion.toLowerCase() === direccion.toLowerCase()) {
@@ -1034,7 +1034,7 @@ localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
 
                 await saveDeuda(updatedDeuda);
 
-                // **Actualizar también en localStorage**
+                // **Actualizar en `localStorage`**
                 const localDeudas = JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || [];
                 const updatedLocalDeudas = localDeudas.map(d =>
                     d.direccion.toLowerCase() === direccion.toLowerCase() ? updatedDeuda : d
@@ -1045,11 +1045,17 @@ localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
             }
         }
 
-        // **Guardar respaldo en localStorage**
+        // **Si no hay deuda registrada para esta dirección, podríamos crear un registro con deuda 0**
+        if (!deudaEncontrada) {
+            console.log(`No hay deuda registrada para la dirección "${direccion}". No se realiza ninguna acción.`);
+        }
+
+        // **Guardar respaldo en `localStorage`**
         const localDb = JSON.parse(localStorage.getItem(DB_KEY)) || [];
         localDb.push(nuevoAbono);
         localStorage.setItem(DB_KEY, JSON.stringify(localDb));
 
+        // **Mostrar comprobante solo si el código de acceso es válido**
         mostrarComprobante(nuevoAbono);
         showMessage('altaMessage', 'Abono registrado con éxito', 'success');
 
@@ -1059,7 +1065,7 @@ localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
         document.getElementById('codigo').value = '';
     } catch (error) {
         console.error('Error al guardar:', error);
-        showMessage('altaMessage', 'Error al registrar el abono. Usando almacenamiento local.', 'error');
+        showMessage('altaMessage', 'Error al registrar el abono', 'error');
     }
 });
 // Eliminar abonos específicos (nombre, dirección, monto y fecha)
