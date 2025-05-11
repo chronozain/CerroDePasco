@@ -838,8 +838,9 @@ async function existePropietario(nombre, direccion) {
 }
 
         // Validar formulario de alta
-        async function validarAlta() {
-            let isValid = true;
+// Función para validar el formulario de alta - Versión modificada
+async function validarAlta() {
+    let isValid = true;
     const nombre = document.getElementById('nombre');
     const direccion = document.getElementById('direccion');
     const abono = document.getElementById('abono');
@@ -847,66 +848,45 @@ async function existePropietario(nombre, direccion) {
     const codigoElement = document.getElementById('codigo');
     const codigo = codigoElement.value;
     
-   /* if (!isValidCode) {
-        codigoElement.classList.add('input-error');
-        document.getElementById('codigoError').classList.remove('hidden');
-        document.getElementById('codigoError').textContent = 'Código de acceso incorrecto';
-        isValid = false;
-    } else if (!/^\d{6}$/.test(codigo)) {
-        codigoElement.classList.add('input-error');
-        document.getElementById('codigoError').classList.remove('hidden');
-        document.getElementById('codigoError').textContent = 'El código debe tener 6 dígitos numéricos';
+    // Validar campos básicos (como antes)
+    if (!nombre.value.trim()) {
+        nombre.classList.add('input-error');
+        document.getElementById('nombreError').classList.remove('hidden');
         isValid = false;
     } else {
-        codigoElement.classList.remove('input-error');
-        document.getElementById('codigoError').classList.add('hidden');
+        nombre.classList.remove('input-error');
+        document.getElementById('nombreError').classList.add('hidden');
     }
-    
-    return isValid;
-}*/
 
-            // Validar nombre
-            if (!nombre.value.trim()) {
-                nombre.classList.add('input-error');
-                document.getElementById('nombreError').classList.remove('hidden');
-                isValid = false;
-            } else {
-                nombre.classList.remove('input-error');
-                document.getElementById('nombreError').classList.add('hidden');
-            }
+    if (!direccion.value.trim()) {
+        direccion.classList.add('input-error');
+        document.getElementById('direccionError').classList.remove('hidden');
+        isValid = false;
+    } else {
+        direccion.classList.remove('input-error');
+        document.getElementById('direccionError').classList.add('hidden');
+    }
 
-            // Validar dirección
-            if (!direccion.value.trim()) {
-                direccion.classList.add('input-error');
-                document.getElementById('direccionError').classList.remove('hidden');
-                isValid = false;
-            } else {
-                direccion.classList.remove('input-error');
-                document.getElementById('direccionError').classList.add('hidden');
-            }
+    if (!abono.value || parseFloat(abono.value) <= 0) {
+        abono.classList.add('input-error');
+        document.getElementById('abonoError').classList.remove('hidden');
+        isValid = false;
+    } else {
+        abono.classList.remove('input-error');
+        document.getElementById('abonoError').classList.add('hidden');
+    }
 
-            // Validar abono
-            if (!abono.value || parseFloat(abono.value) <= 0) {
-                abono.classList.add('input-error');
-                document.getElementById('abonoError').classList.remove('hidden');
-                isValid = false;
-            } else {
-                abono.classList.remove('input-error');
-                document.getElementById('abonoError').classList.add('hidden');
-            }
+    if (!fecha.value) {
+        fecha.classList.add('input-error');
+        document.getElementById('fechaError').classList.remove('hidden');
+        isValid = false;
+    } else {
+        fecha.classList.remove('input-error');
+        document.getElementById('fechaError').classList.add('hidden');
+    }
 
-            // Validar fecha
-            if (!fecha.value) {
-                fecha.classList.add('input-error');
-                document.getElementById('fechaError').classList.remove('hidden');
-                isValid = false;
-            } else {
-                fecha.classList.remove('input-error');
-                document.getElementById('fechaError').classList.add('hidden');
-            }
-
-            // Validar código
-            try {
+    // Validar código de acceso
+    try {
         const isValidCode = await validateAccessCode(codigo);
         if (!isValidCode) {
             codigoElement.classList.add('input-error');
@@ -930,9 +910,41 @@ async function existePropietario(nombre, direccion) {
         isValid = false;
     }
 
+    // Solo continuar con la validación de nombre/dirección si los otros campos son válidos
+    if (isValid) {
+        // Verificar si la dirección ya existe con un nombre diferente
+        const nombreIngresado = nombre.value.trim().toLowerCase();
+        const direccionIngresada = direccion.value.trim().toLowerCase();
+        
+        try {
+            const snapshot = await dbRef.orderByChild('direccion').equalTo(direccionIngresada).once('value');
+            
+            if (snapshot.exists()) {
+                // Obtener el primer registro encontrado (asumimos que todos los registros con esta dirección tienen el mismo nombre)
+                const abonoExistente = Object.values(snapshot.val())[0];
+                const nombreRegistrado = abonoExistente.nombre.toLowerCase();
+                
+                if (nombreIngresado !== nombreRegistrado) {
+                    nombre.classList.add('input-error');
+                    direccion.classList.add('input-error');
+                    document.getElementById('nombreError').textContent = 'El nombre no coincide con el registrado para esta dirección';
+                    document.getElementById('nombreError').classList.remove('hidden');
+                    document.getElementById('direccionError').textContent = 'Esta dirección ya está registrada con otro nombre';
+                    document.getElementById('direccionError').classList.remove('hidden');
+                    isValid = false;
+                    
+                    showMessage('altaMessage', `Error: La dirección "${direccion.value}" ya está registrada a nombre de "${abonoExistente.nombre}"`, 'error');
+                }
+            }
+        } catch (error) {
+            console.error('Error al verificar dirección:', error);
+            // En caso de error, permitir continuar pero registrar el error
+            showMessage('altaMessage', 'Error al verificar datos existentes. Verifique la información.', 'error');
+        }
+    }
+
     return isValid;
 }
-
         // Validar formulario de generación de corte
         async function validarGenerarCorte() {
             let isValid = true;
