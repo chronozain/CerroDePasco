@@ -1687,7 +1687,7 @@ function copiarAlPortapapeles(texto) {
 
 // Modificar el evento btnAlta para mostrar comprobante
     // Registrar un nuevo abono - Versión modificada para Firebase
-    document.getElementById('btnAlta').addEventListener('click', async function() {
+ /*   document.getElementById('btnAlta').addEventListener('click', async function() {
         if (!await validarAlta()) return;
 
         const nombre = document.getElementById('nombre').value.trim();
@@ -1754,7 +1754,7 @@ function copiarAlPortapapeles(texto) {
             console.error('Error al guardar:', error);
             showMessage('altaMessage', 'Error al registrar el abono. Usando almacenamiento local.', 'error');
         }
-    });
+    }); */
 // Mostrar/ocultar campos según tipo de exportación
 document.getElementById('exportarTipo').addEventListener('change', function() {
     const tipo = this.value;
@@ -1958,33 +1958,7 @@ document.getElementById('btnExportar').addEventListener('click', async function(
 
         
     </script>
-    <script>
-document.getElementById('cerrarComprobante').addEventListener('click', function() {
-    document.getElementById('comprobanteModal').classList.add('hidden');
-});
-
-document.getElementById('imprimirComprobante').addEventListener('click', function() {
-    window.print();
-});
-
-document.getElementById('compartirComprobante').addEventListener('click', function() {
-    const comprobanteTexto = `Comprobante de Pago\n-----------------------------\n
-    Número: ${document.getElementById('comprobanteNumero').textContent}
-    Fecha: ${document.getElementById('comprobanteFecha').textContent}
-    Propietario: ${document.getElementById('comprobanteNombre').textContent}
-    Dirección: ${document.getElementById('comprobanteDireccion').textContent}
-    Comentario: ${document.getElementById('comprobanteComentario').textContent}
-    Monto: ${document.getElementById('comprobanteMonto').textContent}\n-----------------------------\n
-    Gracias por su pago. Administración Cerro de Pasco.`;
-
-    navigator.clipboard.writeText(comprobanteTexto).then(() => {
-        alert('Comprobante copiado al portapapeles');
-    }).catch(err => {
-        console.error('Error al copiar:', err);
-        prompt('Copie este texto:', comprobanteTexto);
-    });
-});
-</script>
+    
     
 <p style="border-radius: 8px; text-align: center; font-size: 12px; color: #fff; margin-top: 16px;position: fixed; left: 8px; bottom: 8px; z-index: 10; background: rgba(0, 0, 0, 0.8); padding: 4px 8px;">Created by Zain</a></p>
 
@@ -2048,5 +2022,32 @@ document.getElementById('compartirComprobante').addEventListener('click', functi
         </div>
     </div>
 </div>
+<script>
+document.getElementById('cerrarComprobante').addEventListener('click', function() {
+    document.getElementById('comprobanteModal').classList.add('hidden');
+});
+
+document.getElementById('imprimirComprobante').addEventListener('click', function() {
+    window.print();
+});
+
+document.getElementById('compartirComprobante').addEventListener('click', function() {
+    const comprobanteTexto = `Comprobante de Pago\n-----------------------------\n
+    Número: ${document.getElementById('comprobanteNumero').textContent}
+    Fecha: ${document.getElementById('comprobanteFecha').textContent}
+    Propietario: ${document.getElementById('comprobanteNombre').textContent}
+    Dirección: ${document.getElementById('comprobanteDireccion').textContent}
+    Comentario: ${document.getElementById('comprobanteComentario').textContent}
+    Monto: ${document.getElementById('comprobanteMonto').textContent}\n-----------------------------\n
+    Gracias por su pago. Administración Cerro de Pasco.`;
+
+    navigator.clipboard.writeText(comprobanteTexto).then(() => {
+        alert('Comprobante copiado al portapapeles');
+    }).catch(err => {
+        console.error('Error al copiar:', err);
+        prompt('Copie este texto:', comprobanteTexto);
+    });
+});
+</script>    
 </body>
 </html>
