@@ -992,13 +992,14 @@ localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
 
         // Registrar un nuevo abono
 document.getElementById('btnAlta').addEventListener('click', async function() {
-    if (!await validarAlta()) {
+    const isValid = await validarAlta();
+    if (!isValid) {
         showMessage('altaMessage', 'Error: Código incorrecto. Registro cancelado.', 'error');
-        return; // 🔹 Detiene la ejecución si la validación falla
+        return; // 🔹 Detiene toda la ejecución si el código es incorrecto
     }
 
-    const db = await getDatabase();  // 🔹 Obtiene la base de datos de abonos
-    const deudasDb = await getDeudasDatabase();  // 🔹 Obtiene la base de datos de deudas
+    const db = await getDatabase();
+    const deudasDb = await getDeudasDatabase();
 
     const nombre = document.getElementById('nombre').value.trim();
     const direccion = document.getElementById('direccion').value.trim();
@@ -1055,7 +1056,7 @@ document.getElementById('btnAlta').addEventListener('click', async function() {
         localDb.push(nuevoAbono);
         localStorage.setItem(DB_KEY, JSON.stringify(localDb));
 
-        // **Mostrar comprobante solo si el código de acceso es válido**
+        // **Mostrar comprobante SOLO si el código de acceso es válido**
         mostrarComprobante(nuevoAbono);
         showMessage('altaMessage', 'Abono registrado con éxito', 'success');
 
