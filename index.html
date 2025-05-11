@@ -252,9 +252,34 @@
     <div id="deudaManualMessage" class="mt-4 p-3 rounded-md hidden"></div>
 </div>
             
-
+//Seccion consulta de comprobante
             <div id="deudaMessage" class="mt-4 p-3 rounded-md hidden"></div>
         </div>
+    <div class="mt-8 bg-white rounded-lg shadow-lg p-6 fade-in">
+            <div class="flex items-center mb-6">
+                <div class="bg-blue-100 p-3 rounded-full mr-4">
+                    <i class="fas fa-receipt text-blue-600 text-xl"></i> </div>
+                <h2 class="text-2xl font-semibold text-gray-800">Consulta de Comprobantes</h2>
+            </div>
+
+            <form id="consultaComprobanteForm" class="space-y-4">
+                <div>
+                    <label for="comprobanteIdConsulta" class="block text-sm font-medium text-gray-700 mb-1">Número de Comprobante*</label>
+                    <input type="text" id="comprobanteIdConsulta" name="comprobanteIdConsulta" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                           placeholder="Ingrese el Número de Comprobante">
+                    <div id="comprobanteIdConsultaError" class="error-message hidden">Ingrese un Número de Comprobante</div>
+                    </div>
+
+                <button type="button" id="btnConsultarComprobante"
+                        class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 px-4 rounded-md transition flex items-center justify-center">
+                    <i class="fas fa-search mr-2"></i> Buscar Comprobante
+                </button>
+            </form>
+
+            <div id="consultaComprobanteMessage" class="mt-4 p-3 rounded-md hidden"></div>
+
+            </div>
 
         <!-- Sección: Administración Código de Acceso -->
         <div class="mt-6 bg-white rounded-lg shadow-lg p-6 fade-in">
@@ -522,6 +547,60 @@ async function getNombreRegistradoParaDireccion(direccionAconsultar) {
             await newDeudaRef.set(deuda);
         }
     }
+    // Función para manejar la consulta de comprobantes por Número de Comprobante
+document.getElementById('btnConsultarComprobante').addEventListener('click', async function() {
+    const comprobanteIdInput = document.getElementById('comprobanteIdConsulta');
+    const numeroComprobanteBuscado = comprobanteIdInput.value.trim();
+    const consultaMessageDiv = document.getElementById('consultaComprobanteMessage');
+
+    consultaMessageDiv.classList.add('hidden');
+    consultaMessageDiv.textContent = '';
+    comprobanteIdInput.classList.remove('input-error');
+    document.getElementById('comprobanteIdConsultaError').classList.add('hidden');
+
+
+    if (!numeroComprobanteBuscado) {
+        comprobanteIdInput.classList.add('input-error');
+        document.getElementById('comprobanteIdConsultaError').textContent = 'Ingrese el Número de Comprobante';
+        document.getElementById('comprobanteIdConsultaError').classList.remove('hidden');
+        return; 
+    }
+
+    try {
+      
+        const snapshot = await dbRef.once('value'); // Descargamos todos los abonos
+        const abonos = snapshot.val() || {};
+
+        let abonoEncontrado = null;
+        let abonoKey = null; // Para guardar la clave de Firebase si se encuentra
+
+        
+        for (const key in abonos) {
+            const abono = abonos[key];
+            
+            if (abono.comprobanteNumero && abono.comprobanteNumero === numeroComprobanteBuscado) {
+                abonoEncontrado = abono;
+                abonoKey = key; // Guardamos la clave de Firebase
+                break; // Encontramos la coincidencia, salimos del bucle
+            }
+        }
+
+
+        if (abonoEncontrado) {
+            
+            abonoEncontrado.id = abonoKey;
+            mostrarComprobante(abonoEncontrado); // Le pasamos el objeto abono completo
+
+        } else {
+            showMessage('consultaComprobanteMessage', 'Comprobante no encontrado con ese número.', 'error');
+        }
+
+    } catch (error) {
+        console.error('Error al consultar comprobante:', error);
+        showMessage('consultaComprobanteMessage', 'Error al buscar el comprobante. Intente de nuevo.', 'error');
+    }
+});
+
         //Funcion validacion Exportacion
         async function validarExportacion() {
     let isValid = true;
@@ -1046,13 +1125,16 @@ document.getElementById('btnAlta').addEventListener('click', async function() {
              document.getElementById('direccionError').classList.add('hidden');
         }
 
+        const numeroComprobanteGenerado = generarNumeroComprobante();
+
         const nuevoAbono = {
             nombre: nombreActual,
             direccion: direccionActual,
             abono: abonoValor,
             fecha: fechaValor,
             comentario: comentarioValor,
-            fechaRegistro: new Date().toISOString()
+            fechaRegistro: new Date().toISOString(),
+            comprobanteNumero: numeroComprobanteGenerado
         };
 
         const abonoId = await saveAbono(nuevoAbono);
@@ -1583,48 +1665,17 @@ function formatDate(dateString) {
 }
         // Mostrar comprobante después de registrar abono
 function mostrarComprobante(abono) {
-    document.getElementById('comprobanteNumero').textContent = generarNumeroComprobante();
+    document.getElementById('comprobanteNumero').textContent = abono.comprobanteNumero || generarNumeroComprobante();
     document.getElementById('comprobanteFecha').textContent = formatDate(abono.fecha);
     document.getElementById('comprobanteNombre').textContent = abono.nombre;
     document.getElementById('comprobanteDireccion').textContent = abono.direccion;
     document.getElementById('comprobanteComentario').textContent = abono.comentario || 'Sin comentario';
-    document.getElementById('comprobanteMonto').textContent = `$${abono.abono.toFixed(2)}`;
-    
+    document.getElementById('comprobanteMonto').textContent = `$${parseFloat(abono.abono).toFixed(2)}`;
+
     const modal = document.getElementById('comprobanteModal');
     modal.classList.remove('hidden');
-    
-    // Configurar botones
-    document.getElementById('cerrarComprobante').addEventListener('click', () => {
-        modal.classList.add('hidden');
-    });
-    
-    document.getElementById('imprimirComprobante').addEventListener('click', () => {
-        window.print();
-    });
-    
-    document.getElementById('compartirComprobante').addEventListener('click', () => {
-        const texto = `Comprobante de Pago\n\n` +
-                      `N°: ${abono.id}\n` +
-                      `Fecha: ${formatDate(abono.fecha)}\n` +
-                      `Propietario: ${abono.nombre}\n` +
-                      `Dirección: ${abono.direccion}\n` +
-                      `Monto: $${abono.abono.toFixed(2)}\n\n` +
-                      `Gracias por su pago.`;
-        
-        if (navigator.share) {
-            navigator.share({
-                title: 'Comprobante de Pago',
-                text: texto
-            }).catch(err => {
-                console.log('Error al compartir:', err);
-                copiarAlPortapapeles(texto);
-            });
-        } else {
-            copiarAlPortapapeles(texto);
-        }
-    });
 }
-
+        
 function copiarAlPortapapeles(texto) {
     navigator.clipboard.writeText(texto).then(() => {
         alert('Comprobante copiado al portapapeles');
