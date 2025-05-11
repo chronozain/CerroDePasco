@@ -476,54 +476,6 @@
         const snapshot = await dbRef.once('value');
         return snapshot.val() || {};
     }
-//Funciones Extra para el alta
-function validarCamposAbono() {
-    let isValid = true;
-    const camposRequeridos = {
-        nombre: document.getElementById('nombre').value.trim(),
-        direccion: document.getElementById('direccion').value.trim(),
-        abono: document.getElementById('abono').value,
-        fecha: document.getElementById('fecha').value
-    };
-
-    // Validación de campos vacíos
-    Object.entries(camposRequeridos).forEach(([id, valor]) => {
-        const elemento = document.getElementById(id);
-        if (!valor) {
-            elemento.classList.add('input-error');
-            document.getElementById(`${id}Error`).classList.remove('hidden');
-            isValid = false;
-        } else {
-            elemento.classList.remove('input-error');
-            document.getElementById(`${id}Error`).classList.add('hidden');
-        }
-    });
-
-    // Validación adicional para monto numérico
-    const monto = parseFloat(camposRequeridos.abono);
-    if (isNaN(monto) || monto <= 0) {
-        document.getElementById('abono').classList.add('input-error');
-        document.getElementById('abonoError').classList.remove('hidden');
-        isValid = false;
-    }
-
-    return isValid;
-}
-
-function mostrarError(elementId, mensaje) {
-    const elemento = document.getElementById(elementId);
-    elemento.textContent = mensaje;
-    elemento.classList.remove('hidden', 'bg-green-100', 'text-green-800');
-    elemento.classList.add('bg-red-100', 'text-red-800');
-}
-
-function mostrarMensajeExito(mensaje) {
-    const elemento = document.getElementById('altaMessage');
-    elemento.textContent = mensaje;
-    elemento.classList.remove('hidden', 'bg-red-100', 'text-red-800');
-    elemento.classList.add('bg-green-100', 'text-green-800');
-    elemento.classList.remove('hidden');
-}
 
     // Guardar un nuevo abono
     async function saveAbono(nuevoAbono) {
@@ -886,6 +838,7 @@ async function existePropietario(nombre, direccion) {
 }
 
         // Validar formulario de alta
+// Función para validar el formulario de alta - Versión modificada
 async function validarAlta() {
     let isValid = true;
     const nombre = document.getElementById('nombre');
@@ -895,7 +848,7 @@ async function validarAlta() {
     const codigoElement = document.getElementById('codigo');
     const codigo = codigoElement.value;
     
-    // Validaciones básicas
+    // Validar campos básicos (como antes)
     if (!nombre.value.trim()) {
         nombre.classList.add('input-error');
         document.getElementById('nombreError').classList.remove('hidden');
@@ -932,7 +885,7 @@ async function validarAlta() {
         document.getElementById('fechaError').classList.add('hidden');
     }
 
-    // Validación de código de acceso
+    // Validar código de acceso
     try {
         const isValidCode = await validateAccessCode(codigo);
         if (!isValidCode) {
@@ -957,8 +910,9 @@ async function validarAlta() {
         isValid = false;
     }
 
-    // Validación de dirección y nombre
+    // Solo continuar con la validación de nombre/dirección si los otros campos son válidos
     if (isValid) {
+        // Verificar si la dirección ya existe con un nombre diferente
         const nombreIngresado = nombre.value.trim().toLowerCase();
         const direccionIngresada = direccion.value.trim().toLowerCase();
         
@@ -966,10 +920,10 @@ async function validarAlta() {
             const snapshot = await dbRef.orderByChild('direccion').equalTo(direccionIngresada).once('value');
             
             if (snapshot.exists()) {
-                const registros = snapshot.val();
-                const primerRegistro = Object.values(registros)[0];
-                const nombreRegistrado = primerRegistro.nombre.toLowerCase();
-
+                // Obtener el primer registro encontrado (asumimos que todos los registros con esta dirección tienen el mismo nombre)
+                const abonoExistente = Object.values(snapshot.val())[0];
+                const nombreRegistrado = abonoExistente.nombre.toLowerCase();
+                
                 if (nombreIngresado !== nombreRegistrado) {
                     nombre.classList.add('input-error');
                     direccion.classList.add('input-error');
@@ -978,12 +932,13 @@ async function validarAlta() {
                     document.getElementById('direccionError').textContent = 'Esta dirección ya está registrada con otro nombre';
                     document.getElementById('direccionError').classList.remove('hidden');
                     isValid = false;
-
-                    showMessage('altaMessage', `Error: La dirección "${direccion.value}" ya está registrada a nombre de "${primerRegistro.nombre}"`, 'error');
+                    
+                    showMessage('altaMessage', `Error: La dirección "${direccion.value}" ya está registrada a nombre de "${abonoExistente.nombre}"`, 'error');
                 }
             }
         } catch (error) {
             console.error('Error al verificar dirección:', error);
+            // En caso de error, permitir continuar pero registrar el error
             showMessage('altaMessage', 'Error al verificar datos existentes. Verifique la información.', 'error');
         }
     }
@@ -1076,67 +1031,7 @@ localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
         }
 
         // Registrar un nuevo abono
-        // Evento click del botón Registrar Abono (versión corregida)
-document.getElementById('btnAlta').addEventListener('click', async () => {
-    // 1. Validación inicial del código de acceso
-    const codigo = document.getElementById('codigo').value;
-    if (!validarCodigoAcceso(codigo)) {
-        mostrarError('codigoError', 'Código de acceso incorrecto');
-        document.getElementById('codigo').classList.add('input-error');
-        return; // Detiene ejecución inmediatamente
-    }
-
-    // 2. Validación del resto de campos
-    if (!validarCamposAbono()) return;
-
-    try {
-        // 3. Obtener y preparar datos
-        const db = getDatabase();
-        const deudasDb = getDeudasDatabase();
-        const abonoData = {
-            nombre: document.getElementById('nombre').value.trim(),
-            direccion: document.getElementById('direccion').value.trim(),
-            monto: parseFloat(document.getElementById('abono').value),
-            fecha: document.getElementById('fecha').value,
-            comentario: document.getElementById('comentario').value.trim(),
-            timestamp: new Date().toISOString()
-        };
-
-        // 4. Registrar en Firebase
-        const newAbonoRef = firebase.database().ref('abonos').push();
-        await newAbonoRef.set(abonoData);
-
-        // 5. Feedback visual y limpieza
-        mostrarMensajeExito('Abono registrado correctamente');
-        limpiarCamposAbono();
-        
-    } catch (error) {
-        console.error('Error al registrar:', error);
-        mostrarError('altaMessage', 'Error al registrar abono: ' + error.message);
-    }
-});
-
-// Función de validación mejorada
-function validarCodigoAcceso(codigo) {
-    const codigoGuardado = localStorage.getItem('codigoAcceso');
-    return codigo === codigoGuardado && codigo.length === 6;
-}
-
-// Bloquear envío automático del formulario
-document.getElementById('altaForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-});
-
-// Función para limpiar campos después del registro
-function limpiarCamposAbono() {
-    ['nombre', 'direccion', 'abono', 'fecha', 'codigo', 'comentario'].forEach(id => {
-        document.getElementById(id).value = '';
-        document.getElementById(id).classList.remove('input-error');
-    });
-    document.getElementById('altaMessage').classList.add('hidden');
-}
-
-     /*   document.getElementById('btnAlta').addEventListener('click', async function() {
+        document.getElementById('btnAlta').addEventListener('click', async function() {
             if (!validarAlta()) return;
 
             const db = getDatabase();
@@ -1155,10 +1050,10 @@ function limpiarCamposAbono() {
                 fecha,
                 comentario: document.getElementById('comentario').value.trim(), // Nuevo campo
                 fechaRegistro: new Date().toISOString()
-            };*/
+            };
 
             db.push(nuevoAbono);
-            saveDatabase(db); 
+            saveDatabase(db);
 
             // Actualizar deuda: restar el abono a la deuda correspondiente
             let deudaEncontrada = false;
@@ -1188,7 +1083,7 @@ function limpiarCamposAbono() {
             mostrarComprobante(nuevoAbono); // Muestra el comprobante
             
             showMessage('altaMessage', 'Abono registrado con éxito', 'success');
-       // });
+        });
 // Eliminar abonos específicos (nombre, dirección, monto y fecha)
 document.getElementById('btnEliminar').addEventListener('click', async function() {
     if (!await validarAlta()) return;
