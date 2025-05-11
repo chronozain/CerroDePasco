@@ -590,6 +590,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         }
 
         try {
+            console.log("Valor de dbRef antes de la consulta:", dbRef);
             const snapshot = await dbRef.once('value'); // dbRef debe estar definido y accesible aquí
             const abonos = snapshot.val() || {};
 
