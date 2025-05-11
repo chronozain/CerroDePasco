@@ -476,6 +476,54 @@
         const snapshot = await dbRef.once('value');
         return snapshot.val() || {};
     }
+//Funciones Extra para el alta
+function validarCamposAbono() {
+    let isValid = true;
+    const camposRequeridos = {
+        nombre: document.getElementById('nombre').value.trim(),
+        direccion: document.getElementById('direccion').value.trim(),
+        abono: document.getElementById('abono').value,
+        fecha: document.getElementById('fecha').value
+    };
+
+    // Validación de campos vacíos
+    Object.entries(camposRequeridos).forEach(([id, valor]) => {
+        const elemento = document.getElementById(id);
+        if (!valor) {
+            elemento.classList.add('input-error');
+            document.getElementById(`${id}Error`).classList.remove('hidden');
+            isValid = false;
+        } else {
+            elemento.classList.remove('input-error');
+            document.getElementById(`${id}Error`).classList.add('hidden');
+        }
+    });
+
+    // Validación adicional para monto numérico
+    const monto = parseFloat(camposRequeridos.abono);
+    if (isNaN(monto) || monto <= 0) {
+        document.getElementById('abono').classList.add('input-error');
+        document.getElementById('abonoError').classList.remove('hidden');
+        isValid = false;
+    }
+
+    return isValid;
+}
+
+function mostrarError(elementId, mensaje) {
+    const elemento = document.getElementById(elementId);
+    elemento.textContent = mensaje;
+    elemento.classList.remove('hidden', 'bg-green-100', 'text-green-800');
+    elemento.classList.add('bg-red-100', 'text-red-800');
+}
+
+function mostrarMensajeExito(mensaje) {
+    const elemento = document.getElementById('altaMessage');
+    elemento.textContent = mensaje;
+    elemento.classList.remove('hidden', 'bg-red-100', 'text-red-800');
+    elemento.classList.add('bg-green-100', 'text-green-800');
+    elemento.classList.remove('hidden');
+}
 
     // Guardar un nuevo abono
     async function saveAbono(nuevoAbono) {
