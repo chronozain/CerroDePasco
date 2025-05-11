@@ -838,7 +838,6 @@ async function existePropietario(nombre, direccion) {
 }
 
         // Validar formulario de alta
-// Función para validar el formulario de alta - Versión modificada
 async function validarAlta() {
     let isValid = true;
     const nombre = document.getElementById('nombre');
@@ -848,7 +847,7 @@ async function validarAlta() {
     const codigoElement = document.getElementById('codigo');
     const codigo = codigoElement.value;
     
-    // Validar campos básicos (como antes)
+    // Validar que los campos obligatorios estén completos
     if (!nombre.value.trim()) {
         nombre.classList.add('input-error');
         document.getElementById('nombreError').classList.remove('hidden');
@@ -885,19 +884,14 @@ async function validarAlta() {
         document.getElementById('fechaError').classList.add('hidden');
     }
 
-    // Validar código de acceso
+    // **Validar código de acceso**
     try {
         const isValidCode = await validateAccessCode(codigo);
         if (!isValidCode) {
             codigoElement.classList.add('input-error');
             document.getElementById('codigoError').classList.remove('hidden');
             document.getElementById('codigoError').textContent = 'Código de acceso incorrecto';
-            isValid = false;
-        } else if (!/^\d{6}$/.test(codigo)) {
-            codigoElement.classList.add('input-error');
-            document.getElementById('codigoError').classList.remove('hidden');
-            document.getElementById('codigoError').textContent = 'El código debe tener 6 dígitos numéricos';
-            isValid = false;
+            return false; // 🔹 Detiene la ejecución aquí si el código no es válido
         } else {
             codigoElement.classList.remove('input-error');
             document.getElementById('codigoError').classList.add('hidden');
@@ -907,45 +901,11 @@ async function validarAlta() {
         codigoElement.classList.add('input-error');
         document.getElementById('codigoError').classList.remove('hidden');
         document.getElementById('codigoError').textContent = 'Error al validar el código';
-        isValid = false;
-    }
-
-    // Solo continuar con la validación de nombre/dirección si los otros campos son válidos
-    if (isValid) {
-        // Verificar si la dirección ya existe con un nombre diferente
-        const nombreIngresado = nombre.value.trim().toLowerCase();
-        const direccionIngresada = direccion.value.trim().toLowerCase();
-        
-        try {
-            const snapshot = await dbRef.orderByChild('direccion').equalTo(direccionIngresada).once('value');
-            
-            if (snapshot.exists()) {
-                // Obtener el primer registro encontrado (asumimos que todos los registros con esta dirección tienen el mismo nombre)
-                const abonoExistente = Object.values(snapshot.val())[0];
-                const nombreRegistrado = abonoExistente.nombre.toLowerCase();
-                
-                if (nombreIngresado !== nombreRegistrado) {
-                    nombre.classList.add('input-error');
-                    direccion.classList.add('input-error');
-                    document.getElementById('nombreError').textContent = 'El nombre no coincide con el registrado para esta dirección';
-                    document.getElementById('nombreError').classList.remove('hidden');
-                    document.getElementById('direccionError').textContent = 'Esta dirección ya está registrada con otro nombre';
-                    document.getElementById('direccionError').classList.remove('hidden');
-                    isValid = false;
-                    
-                    showMessage('altaMessage', `Error: La dirección "${direccion.value}" ya está registrada a nombre de "${abonoExistente.nombre}"`, 'error');
-                }
-            }
-        } catch (error) {
-            console.error('Error al verificar dirección:', error);
-            // En caso de error, permitir continuar pero registrar el error
-            showMessage('altaMessage', 'Error al verificar datos existentes. Verifique la información.', 'error');
-        }
+        return false;
     }
 
     return isValid;
-}
-        // Validar formulario de generación de corte
+}        // Validar formulario de generación de corte
         async function validarGenerarCorte() {
             let isValid = true;
             const deudaCodigo = document.getElementById('deudaCodigo');
@@ -1031,59 +991,77 @@ localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
         }
 
         // Registrar un nuevo abono
-        document.getElementById('btnAlta').addEventListener('click', async function() {
-            if (!validarAlta()) return;
+       document.getElementById('btnAlta').addEventListener('click', async function() {
+    if (!await validarAlta()) {
+        showMessage('altaMessage', 'Error: Código incorrecto. Registro cancelado.', 'error');
+        return;
+    }
 
-            const db = getDatabase();
-            const deudasDb = getDeudasDatabase();
-            const nombre = document.getElementById('nombre').value.trim();
-            const direccion = document.getElementById('direccion').value.trim();
-            const abono = parseFloat(document.getElementById('abono').value);
-            const fecha = document.getElementById('fecha').value;
+    const db = await getDatabase();  // 🔹 Obtiene la base de datos de abonos
+    const deudasDb = await getDeudasDatabase();  // 🔹 Obtiene la base de datos de deudas
 
-            // Crear nuevo registro de abono
-            const nuevoAbono = {
-                id: generarNumeroComprobante(),
-                nombre,
-                direccion,
-                abono,
-                fecha,
-                comentario: document.getElementById('comentario').value.trim(), // Nuevo campo
-                fechaRegistro: new Date().toISOString()
-            };
+    const nombre = document.getElementById('nombre').value.trim();
+    const direccion = document.getElementById('direccion').value.trim();
+    const abono = parseFloat(document.getElementById('abono').value);
+    const fecha = document.getElementById('fecha').value;
+    const comentario = document.getElementById('comentario').value.trim();
 
-            db.push(nuevoAbono);
-            saveDatabase(db);
+    const nuevoAbono = {
+        nombre,
+        direccion,
+        abono,
+        fecha,
+        comentario,
+        fechaRegistro: new Date().toISOString()
+    };
 
-            // Actualizar deuda: restar el abono a la deuda correspondiente
-            let deudaEncontrada = false;
-            const nuevasDeudas = deudasDb.map(deuda => {
-                if (deuda.direccion.toLowerCase() === direccion.toLowerCase()) {
-                    deudaEncontrada = true;
-                    return {
-                        ...deuda,
-                        deuda: Math.max(0, deuda.deuda - abono),
-                        ultimoAbono: fecha,
-                        ultimoAbonoMonto: abono
-                    };
-                }
-                return deuda;
-            });
+    try {
+        // Guardar abono en Firebase
+        const abonoId = await saveAbono(nuevoAbono);
+        nuevoAbono.id = abonoId;
 
-            if (!deudaEncontrada) {
-                // Si no existe deuda para esta dirección, no hacemos nada (o podríamos crear un registro con deuda 0)
-            } else {
-                saveDeudasDatabase(nuevasDeudas);
+        // **Actualizar deuda** si existe en la base de datos
+        let deudaEncontrada = false;
+        for (const key in deudasDb) {
+            if (deudasDb[key].direccion.toLowerCase() === direccion.toLowerCase()) {
+                deudaEncontrada = true;
+                const updatedDeuda = {
+                    ...deudasDb[key],
+                    deuda: Math.max(0, deudasDb[key].deuda - abono),
+                    ultimoAbono: fecha,
+                    ultimoAbonoMonto: abono
+                };
+
+                await saveDeuda(updatedDeuda);
+
+                // **Actualizar también en localStorage**
+                const localDeudas = JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || [];
+                const updatedLocalDeudas = localDeudas.map(d =>
+                    d.direccion.toLowerCase() === direccion.toLowerCase() ? updatedDeuda : d
+                );
+                localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(updatedLocalDeudas));
+
+                break;
             }
+        }
 
-            // Limpiar formulario (excepto nombre y dirección para facilitar múltiples abonos)
-            document.getElementById('abono').value = '';
-            document.getElementById('fecha').value = '';
-            document.getElementById('codigo').value = '';
-            mostrarComprobante(nuevoAbono); // Muestra el comprobante
-            
-            showMessage('altaMessage', 'Abono registrado con éxito', 'success');
-        });
+        // **Guardar respaldo en localStorage**
+        const localDb = JSON.parse(localStorage.getItem(DB_KEY)) || [];
+        localDb.push(nuevoAbono);
+        localStorage.setItem(DB_KEY, JSON.stringify(localDb));
+
+        mostrarComprobante(nuevoAbono);
+        showMessage('altaMessage', 'Abono registrado con éxito', 'success');
+
+        // **Limpiar campos del formulario**
+        document.getElementById('abono').value = '';
+        document.getElementById('fecha').value = '';
+        document.getElementById('codigo').value = '';
+    } catch (error) {
+        console.error('Error al guardar:', error);
+        showMessage('altaMessage', 'Error al registrar el abono. Usando almacenamiento local.', 'error');
+    }
+});
 // Eliminar abonos específicos (nombre, dirección, monto y fecha)
 document.getElementById('btnEliminar').addEventListener('click', async function() {
     if (!await validarAlta()) return;
