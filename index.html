@@ -454,48 +454,130 @@
     let ACCESS_CODE = DEFAULT_ACCESS_CODE;
 // Inicializar y controlar visibilidad de campos de exportación
    // Al cargar la página, obtener el código de validación
-    document.addEventListener('DOMContentLoaded', async function() {
-        try {
-            // Obtener códigos de Firebase
-            const snapshot = await codigosRef.once('value');
-            const codigos = snapshot.val() || {};
-        
-            // Establecer códigos actuales
-            ADMIN_CODE = codigos.admin || DEFAULT_ADMIN_CODE;
-            ACCESS_CODE = codigos.access || DEFAULT_ACCESS_CODE;
-        
-            // Guardar en localStorage como respaldo
-            localStorage.setItem('admin_code', ADMIN_CODE);
-            localStorage.setItem('access_code', ACCESS_CODE);
-            // Obtener código de Firebase o localStorage
-            CODIGO_VALIDACION = await getCodigoValidacion();
-            
-            // Ocultar campos de exportación
-            document.getElementById('exportarClienteGroup').classList.add('hidden');
-            document.getElementById('exportarMesGroup').classList.add('hidden');
-            
-            // Configurar evento para mostrar/ocultar campos
-            document.getElementById('exportarTipo').addEventListener('change', function() {
-                const tipo = this.value;
-                document.getElementById('exportarClienteGroup').classList.toggle('hidden', tipo !== 'cliente');
-                document.getElementById('exportarMesGroup').classList.toggle('hidden', tipo !== 'mes');
+document.addEventListener('DOMContentLoaded', async function() {
+    try {
+        const snapshot = await codigosRef.once('value');
+        const codigos = snapshot.val() || {};
+
+        ADMIN_CODE = codigos.admin || DEFAULT_ADMIN_CODE;
+        ACCESS_CODE = codigos.access || DEFAULT_ACCESS_CODE;
+
+        localStorage.setItem('admin_code', ADMIN_CODE);
+        localStorage.setItem('access_code', ACCESS_CODE);
+        CODIGO_VALIDACION = await getCodigoValidacion();
+
+        document.getElementById('exportarClienteGroup').classList.add('hidden');
+        document.getElementById('exportarMesGroup').classList.add('hidden');
+
+        document.getElementById('exportarTipo').addEventListener('change', function() {
+            const tipo = this.value;
+            document.getElementById('exportarClienteGroup').classList.toggle('hidden', tipo !== 'cliente');
+            document.getElementById('exportarMesGroup').classList.toggle('hidden', tipo !== 'mes');
+        });
+    } catch (error) {
+        console.error('Error al cargar configuración:', error);
+        showMessage('altaMessage', 'Error al conectar con la base de datos', 'error');
+        console.error('Error al cargar códigos:', error);
+        ADMIN_CODE = localStorage.getItem('admin_code') || DEFAULT_ADMIN_CODE;
+        ACCESS_CODE = localStorage.getItem('access_code') || DEFAULT_ACCESS_CODE;
+    }
+    if (!localStorage.getItem(DB_KEY)) {
+        localStorage.setItem(DB_KEY, JSON.stringify([]));
+    }
+    if (!localStorage.getItem(DB_DEUDAS_KEY)) {
+        localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify([]));
+    }
+
+    document.getElementById('cerrarComprobante').addEventListener('click', () => {
+        const modal = document.getElementById('comprobanteModal');
+        modal.classList.add('hidden');
+    });
+
+    document.getElementById('imprimirComprobante').addEventListener('click', () => {
+        window.print();
+    });
+
+    document.getElementById('compartirComprobante').addEventListener('click', () => {
+        const comprobanteNumero = document.getElementById('comprobanteNumero').textContent;
+        const comprobanteFecha = document.getElementById('comprobanteFecha').textContent;
+        const comprobanteNombre = document.getElementById('comprobanteNombre').textContent;
+        const comprobanteDireccion = document.getElementById('comprobanteDireccion').textContent;
+        const comprobanteMonto = document.getElementById('comprobanteMonto').textContent;
+        const comprobanteComentario = document.getElementById('comprobanteComentario').textContent;
+
+        const texto = `Comprobante de Pago\n\n` +
+                      `N°: ${comprobanteNumero}\n` +
+                      `Fecha: ${comprobanteFecha}\n` +
+                      `Propietario: ${comprobanteNombre}\n` +
+                      `Dirección: ${comprobanteDireccion}\n` +
+                      `Monto: ${comprobanteMonto}\n\n` +
+                      `Comentario: ${comprobanteComentario}\n\n` +
+                      `Gracias por su pago.`;
+
+        if (navigator.share) {
+            navigator.share({
+                title: 'Comprobante de Pago',
+                text: texto
+            }).catch(err => {
+                console.error('Error al compartir:', err);
+                copiarAlPortapapeles(texto);
             });
+        } else {
+            copiarAlPortapapeles(texto);
+        }
+    });
+
+    document.getElementById('btnConsultarComprobante').addEventListener('click', async function() {
+        const comprobanteIdInput = document.getElementById('comprobanteIdConsulta');
+        const numeroComprobanteBuscado = comprobanteIdInput.value.trim();
+        const consultaMessageDiv = document.getElementById('consultaComprobanteMessage');
+
+        consultaMessageDiv.classList.add('hidden');
+        consultaMessageDiv.textContent = '';
+        comprobanteIdInput.classList.remove('input-error');
+        document.getElementById('comprobanteIdConsultaError').classList.add('hidden');
+
+        if (!numeroComprobanteBuscado) {
+            comprobanteIdInput.classList.add('input-error');
+            document.getElementById('comprobanteIdConsultaError').textContent = 'Ingrese el Número de Comprobante';
+            document.getElementById('comprobanteIdConsultaError').classList.remove('hidden');
+            return;
+        }
+
+        try {
+            const snapshot = await dbRef.once('value');
+            const abonos = snapshot.val() || {};
+
+            let abonoEncontrado = null;
+            let abonoKey = null;
+
+            for (const key in abonos) {
+                const abono = abonos[key];
+                if (abono.comprobanteNumero && abono.comprobanteNumero === numeroComprobanteBuscado) {
+                    abonoEncontrado = abono;
+                    abonoKey = key;
+                    break;
+                }
+            }
+
+            if (abonoEncontrado) {
+                abonoEncontrado.id = abonoKey;
+                mostrarComprobante(abonoEncontrado);
+            } else {
+                showMessage('consultaComprobanteMessage', 'Comprobante no encontrado con ese número.', 'error');
+            }
+
         } catch (error) {
-            console.error('Error al cargar configuración:', error);
-            showMessage('altaMessage', 'Error al conectar con la base de datos', 'error');
-            console.error('Error al cargar códigos:', error);
-            // Usar localStorage como respaldo
-            ADMIN_CODE = localStorage.getItem('admin_code') || DEFAULT_ADMIN_CODE;
-            ACCESS_CODE = localStorage.getItem('access_code') || DEFAULT_ACCESS_CODE;
+            console.error('Error al consultar comprobante:', error);
+            showMessage('consultaComprobanteMessage', 'Error al buscar el comprobante. Intente de nuevo.', 'error');
         }
+    });
+
+    // Otros event listeners existentes (ej: btnAlta, btnGenerarReporte, etc.) irían aquí
+    // Y la lógica para cambiar de pestaña/sección si la tienes aquí también.
+
+
 });
-        // Inicializar base de datos si no existe
-        if (!localStorage.getItem(DB_KEY)) {
-            localStorage.setItem(DB_KEY, JSON.stringify([]));
-        }
-        if (!localStorage.getItem(DB_DEUDAS_KEY)) {
-            localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify([]));
-        }
 // Obtener todos los abonos NUEVAS FUNCIONES PARA FIREBASE
     async function getFirebaseAbonos() {
         const snapshot = await dbRef.once('value');
