@@ -840,104 +840,48 @@ async function existePropietario(nombre, direccion) {
         // Validar formulario de alta
 async function validarAlta() {
     let isValid = true;
-    const nombre = document.getElementById('nombre');
-    const direccion = document.getElementById('direccion');
-    const abono = document.getElementById('abono');
-    const fecha = document.getElementById('fecha');
+    const nombre = document.getElementById('nombre').value.trim();
+    const direccion = document.getElementById('direccion').value.trim();
+    const abono = parseFloat(document.getElementById('abono').value);
+    const fecha = document.getElementById('fecha').value;
     const codigoElement = document.getElementById('codigo');
     const codigo = codigoElement.value;
-    
-    // Validaciones básicas
-    if (!nombre.value.trim()) {
-        nombre.classList.add('input-error');
-        document.getElementById('nombreError').classList.remove('hidden');
-        isValid = false;
-    } else {
-        nombre.classList.remove('input-error');
-        document.getElementById('nombreError').classList.add('hidden');
+
+    // Validaciones generales
+    if (!nombre || !direccion || !fecha || abono <= 0) {
+        showMessage('altaMessage', 'Todos los campos son obligatorios.', 'error');
+        return false;
     }
 
-    if (!direccion.value.trim()) {
-        direccion.classList.add('input-error');
-        document.getElementById('direccionError').classList.remove('hidden');
-        isValid = false;
-    } else {
-        direccion.classList.remove('input-error');
-        document.getElementById('direccionError').classList.add('hidden');
-    }
-
-    if (!abono.value || parseFloat(abono.value) <= 0) {
-        abono.classList.add('input-error');
-        document.getElementById('abonoError').classList.remove('hidden');
-        isValid = false;
-    } else {
-        abono.classList.remove('input-error');
-        document.getElementById('abonoError').classList.add('hidden');
-    }
-
-    if (!fecha.value) {
-        fecha.classList.add('input-error');
-        document.getElementById('fechaError').classList.remove('hidden');
-        isValid = false;
-    } else {
-        fecha.classList.remove('input-error');
-        document.getElementById('fechaError').classList.add('hidden');
-    }
-
-    // Validación de código de acceso
     try {
+        // Validar código de acceso antes de proceder
         const isValidCode = await validateAccessCode(codigo);
         if (!isValidCode) {
-            codigoElement.classList.add('input-error');
-            document.getElementById('codigoError').classList.remove('hidden');
-            document.getElementById('codigoError').textContent = 'Código de acceso incorrecto';
-            isValid = false;
-        } else if (!/^\d{6}$/.test(codigo)) {
-            codigoElement.classList.add('input-error');
-            document.getElementById('codigoError').classList.remove('hidden');
-            document.getElementById('codigoError').textContent = 'El código debe tener 6 dígitos numéricos';
-            isValid = false;
-        } else {
-            codigoElement.classList.remove('input-error');
-            document.getElementById('codigoError').classList.add('hidden');
+            showMessage('altaMessage', 'Código de acceso incorrecto.', 'error');
+            return false;
         }
-    } catch (error) {
-        console.error('Error al validar código:', error);
-        codigoElement.classList.add('input-error');
-        document.getElementById('codigoError').classList.remove('hidden');
-        document.getElementById('codigoError').textContent = 'Error al validar el código';
-        isValid = false;
-    }
 
-    // Validación de dirección y nombre
-    if (isValid) {
-        const nombreIngresado = nombre.value.trim().toLowerCase();
-        const direccionIngresada = direccion.value.trim().toLowerCase();
-        
-        try {
-            const snapshot = await dbRef.orderByChild('direccion').equalTo(direccionIngresada).once('value');
-            
-            if (snapshot.exists()) {
-                const registros = snapshot.val();
-                const primerRegistro = Object.values(registros)[0];
-                const nombreRegistrado = primerRegistro.nombre.toLowerCase();
+        // Consultar Firebase para verificar si la dirección ya está registrada
+        const snapshot = await dbRef.orderByChild('direccion').equalTo(direccion).once('value');
 
-                if (nombreIngresado !== nombreRegistrado) {
-                    nombre.classList.add('input-error');
-                    direccion.classList.add('input-error');
-                    document.getElementById('nombreError').textContent = 'El nombre no coincide con el registrado para esta dirección';
-                    document.getElementById('nombreError').classList.remove('hidden');
-                    document.getElementById('direccionError').textContent = 'Esta dirección ya está registrada con otro nombre';
-                    document.getElementById('direccionError').classList.remove('hidden');
-                    isValid = false;
+        if (snapshot.exists()) {
+            const registros = snapshot.val();
+            const primerRegistro = Object.values(registros)[0]; // Obtener el primer registro con esa dirección
+            const nombreRegistrado = primerRegistro.nombre.toLowerCase();
 
-                    showMessage('altaMessage', `Error: La dirección "${direccion.value}" ya está registrada a nombre de "${primerRegistro.nombre}"`, 'error');
-                }
+            if (nombre.toLowerCase() !== nombreRegistrado) {
+                showMessage('altaMessage', `Error: La dirección "${direccion}" ya está registrada a nombre de "${primerRegistro.nombre}".`, 'error');
+                return false;
             }
-        } catch (error) {
-            console.error('Error al verificar dirección:', error);
-            showMessage('altaMessage', 'Error al verificar datos existentes. Verifique la información.', 'error');
+        } else {
+            // Si la dirección no existe aún, registrarla con el nombre ingresado
+            await dbRef.push({ nombre, direccion });
         }
+
+    } catch (error) {
+        console.error('Error al validar la información:', error);
+        showMessage('altaMessage', 'Error al validar la información.', 'error');
+        return false;
     }
 
     return isValid;
