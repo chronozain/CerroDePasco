@@ -1011,16 +1011,24 @@ localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
 
         // Registrar un nuevo abono
 document.getElementById('btnAlta').addEventListener('click', async function() {
+    console.log('--- Listener click btnAlta iniciado ---'); // Log 1
+
+    console.log('Llamando a validarAlta...'); // Log 2
     if (!await validarAlta()) {
+        console.log('validarAlta falló. Retornando.'); // Log 3
         if (!document.getElementById('codigoError').classList.contains('hidden')) {
             showMessage('altaMessage', 'Error: Código incorrecto. Registro cancelado.', 'error');
         } else {
             showMessage('altaMessage', 'Error en la validación de datos. Registro cancelado.', 'error');
         }
         document.getElementById('codigo').value = '';
+        console.log('--- Listener btnAlta finalizado por validación inicial fallida ---'); // Log 4
         return;
     }
+    console.log('validarAlta exitoso.'); // Log 5
 
+
+    console.log('Entrando al bloque try principal...'); // Log 6
     try {
         const nombreActual = document.getElementById('nombre').value.trim();
         const direccionActual = document.getElementById('direccion').value.trim();
@@ -1028,16 +1036,24 @@ document.getElementById('btnAlta').addEventListener('click', async function() {
         const fechaValor = document.getElementById('fecha').value;
         const comentarioValor = document.getElementById('comentario').value.trim();
 
-        const nombreRegistrado = await getNombreRegistradoParaDireccion(direccionActual);
+        console.log('Llamando a getNombreRegistradoParaDireccion...'); // Log 7
+        const nombreRegistrado = await getNombreRegistradoParaDireccion(direccionActual); // Esperamos la respuesta asíncrona
+        console.log('getNombreRegistradoParaDireccion finalizado. nombreRegistrado:', nombreRegistrado); // Log 8
 
+
+        // Verificación del conflicto de nombre y dirección
         if (nombreRegistrado && nombreRegistrado.toLowerCase() !== nombreActual.toLowerCase()) {
+            console.log('¡Conflicto detectado!'); // Log 9
             document.getElementById('nombre').classList.add('input-error');
             const nombreErrorDiv = document.getElementById('nombreError');
             nombreErrorDiv.textContent = `La dirección "${direccionActual}" ya está registrada a nombre de "${nombreRegistrado}". El nombre debe coincidir.`;
             nombreErrorDiv.classList.remove('hidden');
             showMessage('altaMessage', 'Error: Conflicto de nombre para la dirección.', 'error');
-            throw new Error('Conflicto de nombre y dirección');
+            console.log('Lanzando error: Conflicto de nombre y dirección'); // Log 10 - ESTO DEBERÍA SER LO ÚLTIMO ANTES DEL CATCH
+            throw new Error('Conflicto de nombre y dirección'); // Lanzamos un error para detener el try
         } else {
+            console.log('No se detectó conflicto o el nombre coincide.'); // Log 11
+             // Si no hay conflicto y el error estaba visible, lo ocultamos
             if (document.getElementById('nombreError').textContent.startsWith("La dirección")) {
                 document.getElementById('nombre').classList.remove('input-error');
                 document.getElementById('nombreError').classList.add('hidden');
@@ -1046,6 +1062,7 @@ document.getElementById('btnAlta').addEventListener('click', async function() {
              document.getElementById('direccionError').classList.add('hidden');
         }
 
+        console.log('Procediendo a guardar abono...'); // Log 12 - ESTE LOG NO DEBERÍA APARECER SI SE DETECTÓ CONFLICTO Y SE LANZÓ EL ERROR
         const nuevoAbono = {
             nombre: nombreActual,
             direccion: direccionActual,
@@ -1055,19 +1072,29 @@ document.getElementById('btnAlta').addEventListener('click', async function() {
             fechaRegistro: new Date().toISOString()
         };
 
-        const abonoId = await saveAbono(nuevoAbono);
+        console.log('Llamando a saveAbono...'); // Log 13
+        const abonoId = await saveAbono(nuevoAbono); // Esperamos que se guarde en Firebase
         nuevoAbono.id = abonoId;
+        console.log('saveAbono finalizado. ID del Abono:', abonoId); // Log 14
 
+
+        console.log('Actualizando localStorage...'); // Log 15
         const localDb = JSON.parse(localStorage.getItem(DB_KEY)) || [];
         localDb.push(nuevoAbono);
         localStorage.setItem(DB_KEY, JSON.stringify(localDb));
+        console.log('localStorage actualizado.'); // Log 16
 
+        console.log('Llamando a getDeudasDatabase...'); // Log 17
         const deudasDb = await getDeudasDatabase();
+        console.log('getDeudasDatabase finalizado.'); // Log 18
+
         let deudaEncontrada = false;
+        console.log('Verificando deuda existente para actualizar...'); // Log 19
 
         for (const key in deudasDb) {
             if (deudasDb[key].direccion && deudasDb[key].direccion.toLowerCase() === direccionActual.toLowerCase()) {
                 deudaEncontrada = true;
+                console.log('Deuda existente encontrada. Actualizando deuda...'); // Log 20
                 const updatedDeuda = {
                     ...deudasDb[key],
                     deuda: Math.max(0, (parseFloat(deudasDb[key].deuda) || 0) - abonoValor),
@@ -1075,45 +1102,73 @@ document.getElementById('btnAlta').addEventListener('click', async function() {
                     ultimoAbonoMonto: abonoValor,
                     fechaActualizacion: new Date().toISOString()
                 };
+                console.log('Llamando a saveDeuda para actualizar...'); // Log 21
                 await saveDeuda(updatedDeuda);
+                console.log('Actualización de saveDeuda finalizada.'); // Log 22
 
+
+                console.log('Actualizando almacenamiento local de deudas...'); // Log 23
                 const localDeudas = JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || [];
                 const updatedLocalDeudas = localDeudas.map(d =>
                     d.direccion.toLowerCase() === direccionActual.toLowerCase() ? updatedDeuda : d
                 );
                 localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(updatedLocalDeudas));
+                console.log('Almacenamiento local de deudas actualizado.'); // Log 24
 
                 break;
             }
         }
         if (!deudaEncontrada) {
-             console.log(`No hay deuda registrada para la dirección "${direccionActual}" al registrar el abono. No se actualiza deuda.`);
-        }
+             console.log(`No hay deuda registrada para la dirección "${direccionActual}" al registrar el abono. No se actualiza deuda.`); // Log 25
+         }
+        console.log('Verificación de actualización de deuda finalizada.'); // Log 26
 
+
+        console.log('Limpiando campos del formulario...'); // Log 27
         document.getElementById('nombre').value = '';
         document.getElementById('direccion').value = '';
         document.getElementById('abono').value = '';
         document.getElementById('fecha').value = '';
         document.getElementById('comentario').value = '';
         document.getElementById('codigo').value = '';
+        console.log('Campos del formulario limpiados.'); // Log 28
 
+
+        console.log('Ocultando mensajes de error...'); // Log 29
         document.getElementById('nombre').classList.remove('input-error');
         document.getElementById('nombreError').classList.add('hidden');
         document.getElementById('direccion').classList.remove('input-error');
         document.getElementById('direccionError').classList.add('hidden');
+        console.log('Mensajes de error ocultos.'); // Log 30
 
+        console.log('Mostrando comprobante...'); // Log 31
         mostrarComprobante(nuevoAbono);
+        console.log('Comprobante mostrado.'); // Log 32
+
+        console.log('Mostrando mensaje de éxito...'); // Log 33
         showMessage('altaMessage', 'Abono registrado con éxito', 'success');
+        console.log('Mensaje de éxito mostrado.'); // Log 34
 
     } catch (error) {
-        console.error('Error en el proceso de alta:', error);
+        // <<<<< Bloque Catch para el try principal >>>>>
+        console.log('--- Entrando al bloque catch ---'); // Log 35
+        console.error('Error capturado en el proceso de alta:', error); // Log 36
 
+        // Limpiar el campo del código en caso de error (seguridad).
         document.getElementById('codigo').value = '';
+        console.log('Campo de código limpiado en caso de error.'); // Log 37
 
-        if (error.message !== 'Conflicto de nombre y dirección') {
+
+        if (error.message === 'Conflicto de nombre y dirección') {
+             console.log('Error de conflicto capturado.'); // Log 38
+             // El mensaje de conflicto específico ya se mostró antes de lanzar el error.
+        } else {
+            console.log('Se capturó un error diferente al de conflicto.'); // Log 39
              showMessage('altaMessage', 'Error en el proceso de alta. Consulte la consola para más detalles.', 'error');
         }
+        console.log('--- Saliendo del bloque catch ---'); // Log 40
     }
+    console.log('--- Listener click btnAlta finalizado ---'); // Log 41 (Se alcanza después del try o del catch)
 });
         // Eliminar abonos específicos (nombre, dirección, monto y fecha)
 document.getElementById('btnEliminar').addEventListener('click', async function() {
