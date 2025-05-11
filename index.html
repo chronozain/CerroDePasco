@@ -838,7 +838,6 @@ async function existePropietario(nombre, direccion) {
 }
 
         // Validar formulario de alta
-// Función para validar el formulario de alta - Versión modificada
 async function validarAlta() {
     let isValid = true;
     const nombre = document.getElementById('nombre');
@@ -848,7 +847,7 @@ async function validarAlta() {
     const codigoElement = document.getElementById('codigo');
     const codigo = codigoElement.value;
     
-    // Validar campos básicos (como antes)
+    // Validaciones básicas
     if (!nombre.value.trim()) {
         nombre.classList.add('input-error');
         document.getElementById('nombreError').classList.remove('hidden');
@@ -885,7 +884,7 @@ async function validarAlta() {
         document.getElementById('fechaError').classList.add('hidden');
     }
 
-    // Validar código de acceso
+    // Validación de código de acceso
     try {
         const isValidCode = await validateAccessCode(codigo);
         if (!isValidCode) {
@@ -910,9 +909,8 @@ async function validarAlta() {
         isValid = false;
     }
 
-    // Solo continuar con la validación de nombre/dirección si los otros campos son válidos
+    // Validación de dirección y nombre
     if (isValid) {
-        // Verificar si la dirección ya existe con un nombre diferente
         const nombreIngresado = nombre.value.trim().toLowerCase();
         const direccionIngresada = direccion.value.trim().toLowerCase();
         
@@ -920,10 +918,10 @@ async function validarAlta() {
             const snapshot = await dbRef.orderByChild('direccion').equalTo(direccionIngresada).once('value');
             
             if (snapshot.exists()) {
-                // Obtener el primer registro encontrado (asumimos que todos los registros con esta dirección tienen el mismo nombre)
-                const abonoExistente = Object.values(snapshot.val())[0];
-                const nombreRegistrado = abonoExistente.nombre.toLowerCase();
-                
+                const registros = snapshot.val();
+                const primerRegistro = Object.values(registros)[0];
+                const nombreRegistrado = primerRegistro.nombre.toLowerCase();
+
                 if (nombreIngresado !== nombreRegistrado) {
                     nombre.classList.add('input-error');
                     direccion.classList.add('input-error');
@@ -932,13 +930,12 @@ async function validarAlta() {
                     document.getElementById('direccionError').textContent = 'Esta dirección ya está registrada con otro nombre';
                     document.getElementById('direccionError').classList.remove('hidden');
                     isValid = false;
-                    
-                    showMessage('altaMessage', `Error: La dirección "${direccion.value}" ya está registrada a nombre de "${abonoExistente.nombre}"`, 'error');
+
+                    showMessage('altaMessage', `Error: La dirección "${direccion.value}" ya está registrada a nombre de "${primerRegistro.nombre}"`, 'error');
                 }
             }
         } catch (error) {
             console.error('Error al verificar dirección:', error);
-            // En caso de error, permitir continuar pero registrar el error
             showMessage('altaMessage', 'Error al verificar datos existentes. Verifique la información.', 'error');
         }
     }
