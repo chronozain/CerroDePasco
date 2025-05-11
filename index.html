@@ -571,6 +571,51 @@ document.addEventListener('DOMContentLoaded', async function() {
             console.error('Error al consultar comprobante:', error);
             showMessage('consultaComprobanteMessage', 'Error al buscar el comprobante. Intente de nuevo.', 'error');
         }
+        // PEGA ESTE BLOQUE COMPLETO DENTRO DE TU LISTENER DOMContentLoaded
+    document.getElementById('btnConsultarComprobante').addEventListener('click', async function() {
+        const comprobanteIdInput = document.getElementById('comprobanteIdConsulta');
+        const numeroComprobanteBuscado = comprobanteIdInput.value.trim();
+        const consultaMessageDiv = document.getElementById('consultaComprobanteMessage');
+
+        consultaMessageDiv.classList.add('hidden');
+        consultaMessageDiv.textContent = '';
+        comprobanteIdInput.classList.remove('input-error');
+        document.getElementById('comprobanteIdConsultaError').classList.add('hidden');
+
+        if (!numeroComprobanteBuscado) {
+            comprobanteIdInput.classList.add('input-error');
+            document.getElementById('comprobanteIdConsultaError').textContent = 'Ingrese el Número de Comprobante';
+            document.getElementById('comprobanteIdConsultaError').classList.remove('hidden');
+            return;
+        }
+
+        try {
+            const snapshot = await dbRef.once('value'); // dbRef debe estar definido y accesible aquí
+            const abonos = snapshot.val() || {};
+
+            let abonoEncontrado = null;
+            let abonoKey = null;
+
+            for (const key in abonos) {
+                const abono = abonos[key];
+                if (abono.comprobanteNumero && abono.comprobanteNumero === numeroComprobanteBuscado) {
+                    abonoEncontrado = abono;
+                    abonoKey = key;
+                    break;
+                }
+            }
+
+            if (abonoEncontrado) {
+                abonoEncontrado.id = abonoKey; // Añadir el ID de Firebase (útil)
+                mostrarComprobante(abonoEncontrado); // llamar a mostrarComprobante
+            } else {
+                showMessage('consultaComprobanteMessage', 'Comprobante no encontrado con ese número.', 'error');
+            }
+
+        } catch (error) {
+            console.error('Error al consultar comprobante:', error);
+            showMessage('consultaComprobanteMessage', 'Error al buscar el comprobante. Intente de nuevo.', 'error');
+        }
     });
 
     // Otros event listeners existentes (ej: btnAlta, btnGenerarReporte, etc.) irían aquí
