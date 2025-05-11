@@ -1091,6 +1091,8 @@ document.getElementById('btnAlta').addEventListener('click', async () => {
 
     try {
         // 3. Obtener y preparar datos
+        const db = getDatabase();
+        const deudasDb = getDeudasDatabase();
         const abonoData = {
             nombre: document.getElementById('nombre').value.trim(),
             direccion: document.getElementById('direccion').value.trim(),
@@ -1155,8 +1157,8 @@ function limpiarCamposAbono() {
                 fechaRegistro: new Date().toISOString()
             };*/
 
-           /* db.push(nuevoAbono);
-            saveDatabase(db); */
+            db.push(nuevoAbono);
+            saveDatabase(db); 
 
             // Actualizar deuda: restar el abono a la deuda correspondiente
             let deudaEncontrada = false;
