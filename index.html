@@ -839,15 +839,16 @@ async function existePropietario(nombre, direccion) {
 
         // Validar formulario de alta
 async function validarAlta() {
-    let isValid = true;
     const nombre = document.getElementById('nombre');
     const direccion = document.getElementById('direccion');
     const abono = document.getElementById('abono');
     const fecha = document.getElementById('fecha');
     const codigoElement = document.getElementById('codigo');
     const codigo = codigoElement.value;
-    
-    // Validar que los campos obligatorios estén completos
+
+    let isValid = true;
+
+    // Validar campos requeridos
     if (!nombre.value.trim()) {
         nombre.classList.add('input-error');
         document.getElementById('nombreError').classList.remove('hidden');
@@ -891,7 +892,7 @@ async function validarAlta() {
             codigoElement.classList.add('input-error');
             document.getElementById('codigoError').classList.remove('hidden');
             document.getElementById('codigoError').textContent = 'Código de acceso incorrecto';
-            return false; // 🔹 Detiene la ejecución aquí si el código no es válido
+            return false; // 🔹 Detiene la ejecución si el código no es válido
         } else {
             codigoElement.classList.remove('input-error');
             document.getElementById('codigoError').classList.add('hidden');
@@ -905,7 +906,8 @@ async function validarAlta() {
     }
 
     return isValid;
-}        // Validar formulario de generación de corte
+}
+     // Validar formulario de generación de corte
         async function validarGenerarCorte() {
             let isValid = true;
             const deudaCodigo = document.getElementById('deudaCodigo');
@@ -992,10 +994,9 @@ localStorage.setItem(CODIGO_HISTORY_KEY, JSON.stringify(history));
 
         // Registrar un nuevo abono
 document.getElementById('btnAlta').addEventListener('click', async function() {
-    // **Ejecutar validación**
     if (!await validarAlta()) {
         showMessage('altaMessage', 'Error: Código incorrecto. Registro cancelado.', 'error');
-        return; // 🔹 Detiene la ejecución completa si el código no es válido
+        return; // 🔹 Bloquea el registro completamente si el código es incorrecto
     }
 
     const db = await getDatabase();
@@ -1035,7 +1036,7 @@ document.getElementById('btnAlta').addEventListener('click', async function() {
 
                 await saveDeuda(updatedDeuda);
 
-                // **Actualizar `localStorage`**
+                // **Actualizar en `localStorage`**
                 const localDeudas = JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || [];
                 const updatedLocalDeudas = localDeudas.map(d =>
                     d.direccion.toLowerCase() === direccion.toLowerCase() ? updatedDeuda : d
@@ -1069,7 +1070,7 @@ document.getElementById('btnAlta').addEventListener('click', async function() {
         showMessage('altaMessage', 'Error al registrar el abono', 'error');
     }
 });
-// Eliminar abonos específicos (nombre, dirección, monto y fecha)
+        // Eliminar abonos específicos (nombre, dirección, monto y fecha)
 document.getElementById('btnEliminar').addEventListener('click', async function() {
     if (!await validarAlta()) return;
 
