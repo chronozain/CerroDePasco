@@ -946,7 +946,7 @@ async function validarAlta() {
     let isValid = true;
 
     // Validar campos requeridos
-    if (!nombre.value.trim()) {
+    if (!nombre.trim()) {
         console.log('IF');
         nombre.classList.add('input-error');
         document.getElementById('nombreError').classList.remove('hidden');
