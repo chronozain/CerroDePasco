@@ -936,7 +936,7 @@ async function existePropietario(nombre, direccion) {
 
         // Validar formulario de alta
 async function validarAlta() {
-    const nombre = document.getElementById('nombre');
+    const nombre = document.getElementById('nombre').value.trim().toUpperCase();
     const direccion = document.getElementById('direccion');
     const abono = document.getElementById('abono');
     const fecha = document.getElementById('fecha');
