@@ -936,10 +936,7 @@ async function existePropietario(nombre, direccion) {
 
         // Validar formulario de alta
 async function validarAlta() {
-    const nombre = document.getElementById('nombre').value;
-    nombre.toUpperCase();
-    console.log('nombre',nombre);
-    //const nombre = document.getElementById('nombre').value.trim().toUpperCase();
+    const nombre = document.getElementById('nombre').value.trim().toUpperCase();
     const direccion = document.getElementById('direccion');
     const abono = document.getElementById('abono');
     const fecha = document.getElementById('fecha');
@@ -949,11 +946,13 @@ async function validarAlta() {
     let isValid = true;
 
     // Validar campos requeridos
-    if (!nombre.value.trim()) {
+    if (!nombre.value.trim().toUpperCase()) {
+        console.log('IF');
         nombre.classList.add('input-error');
         document.getElementById('nombreError').classList.remove('hidden');
         isValid = false;
     } else {
+        console.log('else');
         nombre.classList.remove('input-error');
         document.getElementById('nombreError').classList.add('hidden');
     }
