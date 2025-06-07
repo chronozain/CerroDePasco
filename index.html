@@ -936,7 +936,7 @@ async function existePropietario(nombre, direccion) {
 
         // Validar formulario de alta
 async function validarAlta() {
-    const nombre = document.getElementById('nombre').value.trim().toUpperCase();
+    const nombre = document.getElementById('nombre');
     const direccion = document.getElementById('direccion');
     const abono = document.getElementById('abono');
     const fecha = document.getElementById('fecha');
@@ -946,7 +946,7 @@ async function validarAlta() {
     let isValid = true;
 
     // Validar campos requeridos
-    if (!nombre.trim()) {
+    if (!nombre.value.trim()) {
         console.log('IF');
         nombre.classList.add('input-error');
         document.getElementById('nombreError').classList.remove('hidden');
@@ -1104,7 +1104,7 @@ document.getElementById('btnAlta').addEventListener('click', async function() {
     }
 
     try {
-        const nombreActual = document.getElementById('nombre').value.trim();
+        const nombreActual = document.getElementById('nombre').value.trim().toUpperCase();
         const direccionActual = document.getElementById('direccion').value.trim();
         const abonoValor = parseFloat(document.getElementById('abono').value);
         const fechaValor = document.getElementById('fecha').value;
