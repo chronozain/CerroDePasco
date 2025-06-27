@@ -1343,65 +1343,66 @@ document.getElementById('btnConsultar').addEventListener('click', async function
         });
 
         // Resto del código para agrupar y mostrar resultados...
-        const agrupados = {};
+// 1) Construir el objeto agrupado
+const agrupados = {};
 
-        // Procesar abonos y deudas
-        resultados.forEach(item => {
-            const key = `${item.nombre}|${item.direccion}`;
-            if (!agrupados[key]) {
-                agrupados[key] = {
-                    nombre: item.nombre,
-                    direccion: item.direccion,
-                    abonos: [],
-                    totalAbonos: 0,
-                    deuda: 0
-                };
-            }
+resultados.forEach(item => {
+  const key = `${item.nombre}|${item.direccion}`;
+  if (!agrupados[key]) {
+    agrupados[key] = {
+      nombre: item.nombre,
+      direccion: item.direccion,
+      abonos: [],
+      totalAbonos: 0,
+      deudaAnterior: 0       // ← Nuevo campo
+    };
+  }
 
-            if (item.abono) {
-                agrupados[key].abonos.push(item);
-                agrupados[key].totalAbonos += item.abono;
-            } 
-            if (item.deuda) {
-                agrupados[key].deuda = item.deuda;
-            }
-        });
+  // Sumar abonos
+  if (item.abono) {
+    agrupados[key].abonos.push(item);
+    agrupados[key].totalAbonos += item.abono;
+  }
 
-        // Mostrar resultados
-        const resultadosDiv = document.getElementById('resultadosConsulta');
-        if (Object.keys(agrupados).length === 0) {
-            resultadosDiv.innerHTML = '<p class="text-gray-500 text-center py-8">No se encontraron resultados</p>';
-            return;
-        }
-
-        let html = '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200">';
-        html += '<thead class="bg-gray-50"><tr>';
-        html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>';
-        html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dirección</th>';
-        html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Abonos</th>';
-        html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deuda</th>';
-        html += '<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>';
-        html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
-
-        Object.values(agrupados).forEach(grupo => {
-            html += `<tr class="hover:bg-gray-50">`;
-            html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.nombre}</td>`;
-            html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.direccion}</td>`;
-            html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$${grupo.totalAbonos.toFixed(2)}</td>`;
-            html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${grupo.deuda > 0 ? 'deuda-alta' : 'text-gray-900'}">$${grupo.deuda.toFixed(2)}</td>`;
-            html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${(grupo.totalAbonos - grupo.deuda) < 0 ? 'text-red-600' : 'text-green-600'}">$${(grupo.totalAbonos - grupo.deuda).toFixed(2)}</td>`;
-            html += `</tr>`;
-        });
-
-        html += '</tbody></table></div>';
-        resultadosDiv.innerHTML = html;
-
-    } catch (error) {
-        console.error('Error en la consulta:', error);
-        showMessage('resultadosConsulta', 'Error al realizar la consulta', 'error');
-    }
+  // Calcular deudaAnterior:
+  // deuda actual + último abono registrado (campo 'ultimoAbonoMonto')
+  if (item.deuda !== undefined) {
+    const last = item.ultimoAbonoMonto || 0;
+    agrupados[key].deudaAnterior = parseFloat(item.deuda) + parseFloat(last);
+  }
 });
 
+
+// 2) Generar cabecera con “Deuda Anterior”
+let html = '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200">';
+html += '<thead class="bg-gray-50"><tr>';
+html += '<th>Nombre</th>';
+html += '<th>Dirección</th>';
+html += '<th>Total Abonos</th>';
+html += '<th>Deuda Anterior</th>';   // ← renombrado
+html += '<th>Balance</th>';
+html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+
+
+// 3) Cada fila resta deudaAnterior – totalAbonos
+Object.values(agrupados).forEach(grupo => {
+  const balance = grupo.deudaAnterior - grupo.totalAbonos;
+
+  html += `<tr class="hover:bg-gray-50">`;
+  html += `<td class="px-6 py-4">${grupo.nombre}</td>`;
+  html += `<td class="px-6 py-4">${grupo.direccion}</td>`;
+  html += `<td class="px-6 py-4">$${grupo.totalAbonos.toFixed(2)}</td>`;
+  html += `<td class="px-6 py-4">$${grupo.deudaAnterior.toFixed(2)}</td>`;
+  html += `<td class="px-6 py-4" style="color:${balance<0?'red':'green'}">
+             $${balance.toFixed(2)}
+           </td>`;
+  html += `</tr>`;
+});
+
+html += '</tbody></table></div>';
+document.getElementById('resultadosConsulta').innerHTML = html;
+
+        
         // Generar corte de deudas
         document.getElementById('btnGenerarCorte').addEventListener('click', async function() {
     if (!await validarGenerarCorte()) return;
