@@ -1389,89 +1389,51 @@ Object.values(agrupados).forEach(grupo => {
 });  // ← ¡No olvides cerrar aquí!
         
         // Generar corte de deudas
-        document.getElementById('btnGenerarCorte').addEventListener('click', async function() {
-    if (!await validarGenerarCorte()) return;
+       // Generar corte de deudas
+document.getElementById('btnGenerarCorte').addEventListener('click', async function() {
+  if (!await validarGenerarCorte()) return;
 
-    const fechaCorte = document.getElementById('deudaFecha').value;
-    const montoMensual = parseFloat(document.getElementById('montoMensual').value);
-    const btn = this;
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> Procesando...';
+  const fechaCorte   = document.getElementById('deudaFecha').value;
+  const montoMensual = parseFloat(document.getElementById('montoMensual').value);
+  const btn          = this;
+  btn.disabled       = true;
+  btn.innerHTML      = '<i class="fas fa-spinner fa-spin mr-2"></i> Procesando…';
 
-    try {
-        // Obtener todos los abonos para identificar direcciones únicas
-        const abonosSnapshot = await dbRef.once('value');
-        const abonos = abonosSnapshot.val() || {};
-        
-        // Obtener todas las deudas existentes
-        const deudasSnapshot = await deudasRef.once('value');
-        const deudas = deudasSnapshot.val() || {};
-        
-        // Identificar direcciones únicas con abonos
-        const direccionesUnicas = new Set();
-        Object.values(abonos).forEach(abono => {
-            if (abono.direccion) {
-                direccionesUnicas.add(abono.direccion.toLowerCase());
-            }
-        });
+  try {
+    // 1) Leer todas las deudas actuales
+    const snapshot  = await deudasRef.once('value');
+    const deudasObj = snapshot.val() || {};
 
-        let direccionesProcesadas = 0;
-        
-        for (const direccion of direccionesUnicas) {
-            const abonoEjemplo = Object.values(abonos).find(a => 
-                a.direccion && a.direccion.toLowerCase() === direccion
-            );
-            
-            if (!abonoEjemplo) continue;
-            
-            // Buscar si ya existe una deuda para esta dirección con la misma fecha de corte
-            const snapshot = await deudasRef.orderByChild('direccion').equalTo(abonoEjemplo.direccion).once('value');
-            let deudaExistente = null;
+    let direccionesProcesadas = 0;
 
-            if (snapshot.exists()) {
-                Object.values(snapshot.val()).forEach(deuda => {
-                    if (deuda.ultimoCorte === fechaCorte) {
-                        deudaExistente = deuda;
-                    }
-                });
-            }
-
-            if (deudaExistente) {
-                // Si la fecha ya existe, sumar el monto al registro existente
-                const key = Object.keys(snapshot.val()).find(k => snapshot.val()[k].ultimoCorte === fechaCorte);
-                await deudasRef.child(key).update({
-                    deuda: parseFloat(deudaExistente.deuda) + montoMensual,
-                    fechaActualizacion: new Date().toISOString()
-                });
-            } else {
-                // Si la fecha es diferente, crear un nuevo registro de deuda
-                const nuevaDeuda = {
-                    nombre: abonoEjemplo.nombre,
-                    direccion: abonoEjemplo.direccion,
-                    deuda: montoMensual,
-                    ultimoCorte: fechaCorte,
-                    comentario: "Cobro de Mantenimiento",
-                    fechaRegistro: new Date().toISOString(),
-                    fechaActualizacion: new Date().toISOString()
-                };
-                await deudasRef.push(nuevaDeuda);
-            }
-
-            direccionesProcesadas++;
-        }
-
-        // Limpiar formulario
-        document.getElementById('deudaCodigo').value = '';
-        document.getElementById('deudaFecha').value = '';
-
-        showMessage('deudaMessage', `Corte generado con éxito. Se procesaron ${direccionesProcesadas} direcciones correctamente.`, 'success');
-    } catch (error) {
-        console.error('Error al generar corte:', error);
-        showMessage('deudaMessage', 'Error al generar el corte de deudas', 'error');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-calculator mr-2"></i> Generar Corte';
+    // 2) Por cada deuda registrada, sumarle el cargo
+    for (const [key, deuda] of Object.entries(deudasObj)) {
+      const nuevoImporte = parseFloat(deuda.deuda || 0) + montoMensual;
+      await deudasRef.child(key).update({
+        deuda: nuevoImporte,
+        ultimoCorte: fechaCorte,
+        comentario: "Cobro de Mantenimiento",
+        fechaActualizacion: new Date().toISOString()
+      });
+      direccionesProcesadas++;
     }
+
+    // Limpiar formulario
+    document.getElementById('deudaCodigo').value = '';
+    document.getElementById('deudaFecha').value  = '';
+
+    showMessage('deudaMessage',
+      `Corte generado con éxito. Se procesaron ${direccionesProcesadas} domicilios.`,
+      'success');
+  } catch (error) {
+    console.error('Error al generar corte:', error);
+    showMessage('deudaMessage',
+      'Error al generar el corte de deudas',
+      'error');
+  } finally {
+    btn.disabled  = false;
+    btn.innerHTML = '<i class="fas fa-calculator mr-2"></i> Generar Corte';
+  }
 });
         // Cambiar código de acceso
         document.getElementById('btnNuevoCodigo').addEventListener('click', async function() {
