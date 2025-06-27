@@ -1363,16 +1363,20 @@ document.getElementById('btnEliminar').addEventListener('click', async function(
       });
     html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
 
-    Object.values(agrupados).forEach(grupo => {
-      const balance = grupo.deudaAnterior - grupo.totalAbonos;
-      html += `<tr class="hover:bg-gray-50">`;
-      html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.nombre}</td>`;
-      html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.direccion}</td>`;
-      html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$${grupo.totalAbonos.toFixed(2)}</td>`;
-      html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$${grupo.deudaAnterior.toFixed(2)}</td>`;
-      html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${balance<0?'text-red-600':'text-green-600'}">$${balance.toFixed(2)}</td>`;
-      html += `</tr>`;
-    });
+Object.values(agrupados).forEach(grupo => {
+  const balance = grupo.totalAbonos - grupo.deudaAnterior;
+  const claseColor = balance < 0 
+    ? 'text-red-600'    // aún debe -> rojo
+    : 'text-green-600'; // cero o saldo a favor -> verde
+
+  html += `<tr class="hover:bg-gray-50">`;
+  html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.nombre}</td>`;
+  html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.direccion}</td>`;
+  html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$${grupo.totalAbonos.toFixed(2)}</td>`;
+  html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$${grupo.deudaAnterior.toFixed(2)}</td>`;
+  html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${claseColor}">$${balance.toFixed(2)}</td>`;
+  html += `</tr>`;
+});
 
     html += '</tbody></table></div>';
     document.getElementById('resultadosConsulta').innerHTML = html;
