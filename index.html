@@ -1389,7 +1389,6 @@ Object.values(agrupados).forEach(grupo => {
 });  // ← ¡No olvides cerrar aquí!
         
         // Generar corte de deudas
-       // Generar corte de deudas
 document.getElementById('btnGenerarCorte').addEventListener('click', async function() {
   if (!await validarGenerarCorte()) return;
 
@@ -1400,31 +1399,53 @@ document.getElementById('btnGenerarCorte').addEventListener('click', async funct
   btn.innerHTML      = '<i class="fas fa-spinner fa-spin mr-2"></i> Procesando…';
 
   try {
-    // 1) Leer todas las deudas actuales
-    const snapshot  = await deudasRef.once('value');
-    const deudasObj = snapshot.val() || {};
+    // 1) Traer todas las deudas y todos los abonos
+    const [dSnap, aSnap] = await Promise.all([ deudasRef.once('value'), dbRef.once('value') ]);
+    const deudasArr     = Object.values(dSnap.val()   || {});
+    const abonosArr     = Object.values(aSnap.val()   || {});
 
-    let direccionesProcesadas = 0;
+    // 2) Construir un map único de direcciones → ejemplo { nombre, direccion }
+    const mapDir = {};
 
-    // 2) Por cada deuda registrada, sumarle el cargo
-    for (const [key, deuda] of Object.entries(deudasObj)) {
-      const nuevoImporte = parseFloat(deuda.deuda || 0) + montoMensual;
-      await deudasRef.child(key).update({
-        deuda: nuevoImporte,
+    // a) cargar desde deudas existentes
+    deudasArr.forEach(d => {
+      const key = d.direccion.trim().toLowerCase();
+      if (!mapDir[key]) {
+        mapDir[key] = { nombre: d.nombre, direccion: d.direccion };
+      }
+    });
+    // b) si hay domicilios que pagaron antes pero nunca tuvieron deuda, cargarlos también
+    abonosArr.forEach(a => {
+      const key = a.direccion.trim().toLowerCase();
+      if (!mapDir[key]) {
+        mapDir[key] = { nombre: a.nombre, direccion: a.direccion };
+      }
+    });
+
+    // 3) Por cada domicilio único, crear un nuevo registro de deuda
+    let cuentas = 0;
+    for (const { nombre, direccion } of Object.values(mapDir)) {
+      const nuevaDeuda = {
+        nombre,
+        direccion,
+        deuda: montoMensual,
         ultimoCorte: fechaCorte,
         comentario: "Cobro de Mantenimiento",
+        fechaRegistro: new Date().toISOString(),
         fechaActualizacion: new Date().toISOString()
-      });
-      direccionesProcesadas++;
+      };
+      await deudasRef.push(nuevaDeuda);
+      cuentas++;
     }
 
-    // Limpiar formulario
+    // 4) Limpiar formulario y mostrar resultado
     document.getElementById('deudaCodigo').value = '';
     document.getElementById('deudaFecha').value  = '';
 
     showMessage('deudaMessage',
-      `Corte generado con éxito. Se procesaron ${direccionesProcesadas} domicilios.`,
+      `Corte generado con éxito. Se crearon ${cuentas} cargos.`,
       'success');
+
   } catch (error) {
     console.error('Error al generar corte:', error);
     showMessage('deudaMessage',
