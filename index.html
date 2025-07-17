@@ -1303,37 +1303,50 @@ document.getElementById('btnEliminar').addEventListener('click', async function(
 });
 
         // Consultar abonos
-        document.getElementById('btnConsultar').addEventListener('click', async function() {
-  const nombre = document.getElementById('consultaNombre').value.trim().toLowerCase();
-  const direccion = document.getElementById('consultaDireccion').value.trim().toLowerCase();
+ document.getElementById('btnConsultar').addEventListener('click', async function() {
+  // Leer criterios
+  const nombreFiltro = document.getElementById('consultaNombre').value.trim().toLowerCase();
+  const direccionFiltro = document.getElementById('consultaDireccion').value.trim().toLowerCase();
 
-  if (!nombre && !direccion) {
-    showMessage('resultadosConsulta',
-                'Ingrese al menos un criterio de búsqueda', 'error');
+  // Validar entrada
+  if (!nombreFiltro && !direccionFiltro) {
+    showMessage('resultadosConsulta', 'Ingrese al menos un criterio de búsqueda', 'error');
     return;
   }
 
   try {
-    // 1) Leer abonos + deudas
-    const [aSnap, dSnap] = await Promise.all([ dbRef.once('value'), deudasRef.once('value') ]);
-    const abonosArr = Object.values(aSnap.val() || {});
-    const deudasArr = Object.values(dSnap.val() || {});
+    // 1) Obtener todos los abonos y todas las deudas
+    const [abonosSnap, deudasSnap] = await Promise.all([
+      dbRef.once('value'),
+      deudasRef.once('value')
+    ]);
+    const abonosArr = Object.values(abonosSnap.val() || {});
+    const deudasArr = Object.values(deudasSnap.val() || {});
 
-    // 2) Filtrar
-    const resultados = [...abonosArr, ...deudasArr].filter(item => {
-      if (nombre && !direccion)      return item.nombre?.toLowerCase().includes(nombre);
-      else if (direccion && !nombre) return item.direccion?.toLowerCase().includes(direccion);
-      else                            return item.nombre?.toLowerCase().includes(nombre)
-                                       && item.direccion?.toLowerCase().includes(direccion);
+    // 2) Filtrar registros según criterio
+    const resultados = [
+      ...abonosArr.map(a => ({ ...a, tipo: 'abono' })),
+      ...deudasArr.map(d => ({ ...d, tipo: 'deuda' }))
+    ].filter(item => {
+      const matchNombre = item.nombre?.toLowerCase().includes(nombreFiltro);
+      const matchDireccion = item.direccion?.toLowerCase().includes(direccionFiltro);
+      if (nombreFiltro && direccionFiltro) {
+        return matchNombre && matchDireccion;
+      } else if (nombreFiltro) {
+        return matchNombre;
+      } else {
+        return matchDireccion;
+      }
     });
 
+    // Si no hay resultados
     if (resultados.length === 0) {
       document.getElementById('resultadosConsulta').innerHTML =
         '<p class="text-gray-500 text-center py-8">No se encontraron resultados</p>';
       return;
     }
 
-    // 3) Agrupar
+    // 3) Agrupar por propietario|dirección y acumular abonos y deudas
     const agrupados = {};
     resultados.forEach(item => {
       const key = `${item.nombre}|${item.direccion}`;
@@ -1345,12 +1358,15 @@ document.getElementById('btnEliminar').addEventListener('click', async function(
           deudaAnterior: 0
         };
       }
-      if (item.abono) {
+
+      // Sumar abonos
+      if (item.tipo === 'abono' && typeof item.abono === 'number') {
         agrupados[key].totalAbonos += item.abono;
       }
-      if (item.deuda !== undefined) {
-        const last = item.ultimoAbonoMonto || 0;
-        agrupados[key].deudaAnterior = parseFloat(item.deuda) + parseFloat(last);
+
+      // Sumar todas las deudas
+      if (item.tipo === 'deuda' && typeof item.deuda === 'number') {
+        agrupados[key].deudaAnterior += item.deuda;
       }
     });
 
@@ -1358,35 +1374,33 @@ document.getElementById('btnEliminar').addEventListener('click', async function(
     let html = '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200">';
     html += '<thead class="bg-gray-50"><tr>';
     ['Nombre','Dirección','Total Abonos','Deuda Anterior','Balance']
-      .forEach(t => {
-        html += `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${t}</th>`;
+      .forEach(col => {
+        html += `<th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${col}</th>`;
       });
     html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
 
-Object.values(agrupados).forEach(grupo => {
-  const balance = grupo.totalAbonos - grupo.deudaAnterior;
-  const claseColor = balance < 0 
-    ? 'text-red-600'    // aún debe -> rojo
-    : 'text-green-600'; // cero o saldo a favor -> verde
+    Object.values(agrupados).forEach(grupo => {
+      const balance = grupo.totalAbonos - grupo.deudaAnterior;
+      const colorBalance = balance < 0 ? 'text-red-600' : 'text-green-600';
 
-  html += `<tr class="hover:bg-gray-50">`;
-  html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.nombre}</td>`;
-  html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.direccion}</td>`;
-  html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$${grupo.totalAbonos.toFixed(2)}</td>`;
-  html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$${grupo.deudaAnterior.toFixed(2)}</td>`;
-  html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${claseColor}">$${balance.toFixed(2)}</td>`;
-  html += `</tr>`;
-});
+      html += '<tr class="hover:bg-gray-50">';
+      html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.nombre}</td>`;
+      html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.direccion}</td>`;
+      html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$${grupo.totalAbonos.toFixed(2)}</td>`;
+      html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$${grupo.deudaAnterior.toFixed(2)}</td>`;
+      html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${colorBalance}">$${balance.toFixed(2)}</td>`;
+      html += '</tr>';
+    });
 
     html += '</tbody></table></div>';
     document.getElementById('resultadosConsulta').innerHTML = html;
 
   } catch (error) {
     console.error('Error en la consulta:', error);
-    showMessage('resultadosConsulta',
-                'Error al realizar la consulta', 'error');
+    showMessage('resultadosConsulta', 'Error al realizar la consulta', 'error');
   }
-});  // ← ¡No olvides cerrar aquí!
+});
+
         
         // Generar corte de deudas
 document.getElementById('btnGenerarCorte').addEventListener('click', async function() {
