@@ -1202,104 +1202,86 @@ document.getElementById('btnAlta').addEventListener('click', async function() {
 });
         // Eliminar abonos específicos (nombre, dirección, monto y fecha)
 document.getElementById('btnEliminar').addEventListener('click', async function() {
-    if (!await validarAlta()) return;
+  // Leemos los valores del formulario
+  const nombre     = document.getElementById('nombre').value.trim();
+  const direccion  = document.getElementById('direccion').value.trim();
+  const abonoValor = parseFloat(document.getElementById('abono').value);
+  const fecha      = document.getElementById('fecha').value;
+  const comentario = document.getElementById('comentario').value.trim();
+  const messageId  = 'altaMessage';
 
-    const nombre = document.getElementById('nombre').value.trim();
-    const direccion = document.getElementById('direccion').value.trim();
-    const abono = parseFloat(document.getElementById('abono').value);
-    const fecha = document.getElementById('fecha').value;
-    const comentario = document.getElementById('comentario').value.trim();
+  // Validamos que tengamos al menos dirección, abono y fecha
+  if (!direccion || isNaN(abonoValor) || !fecha) {
+    showMessage(messageId, 'Para eliminar, ingrese dirección, monto y fecha.', 'error');
+    return;
+  }
 
-    // Validar que tenemos los datos mínimos requeridos
-    if ((!nombre && !direccion) || !abono || !fecha) {
-        showMessage('altaMessage', 'Se requiere nombre/dirección, monto y fecha para eliminar', 'error');
-        return;
+  try {
+    // 1) Traer todos los abonos de Firebase
+    const snapshot = await dbRef.once('value');
+    const abonos   = snapshot.val() || {};
+
+    let keyAEliminar = null;
+    let datosABorrar = null;
+
+    // 2) Buscar coincidencia exacta en todos los campos
+    for (const key in abonos) {
+      const item = abonos[key];
+      const itemComentario = (item.comentario || '').trim();
+
+      const matchesDireccion  = item.direccion?.toLowerCase() === direccion.toLowerCase();
+      const matchesAbono      = item.abono === abonoValor;
+      const matchesFecha      = item.fecha === fecha;
+      const matchesComentario = itemComentario.toLowerCase() === comentario.toLowerCase();
+
+      if (matchesDireccion && matchesAbono && matchesFecha && matchesComentario) {
+        keyAEliminar  = key;
+        datosABorrar  = item;
+        break;
+      }
     }
 
-    try {
-        // Obtener todos los abonos de Firebase
-        const snapshot = await dbRef.once('value');
-        const abonos = snapshot.val() || {};
-        
-        let abonoEncontrado = null;
-        let abonoKey = null;
-        
-        // Buscar el abono específico que coincida con todos los criterios
-        for (const key in abonos) {
-            const item = abonos[key];
-            const matchesNombre = nombre ? item.nombre?.toLowerCase() === nombre.toLowerCase() : true;
-            const matchesDireccion = direccion ? item.direccion?.toLowerCase() === direccion.toLowerCase() : true;
-            const matchesAbono = item.abono === abono;
-            const matchesFecha = item.fecha === fecha;
-            
-            if (matchesNombre && matchesDireccion && matchesAbono && matchesFecha) {
-                abonoEncontrado = item;
-                abonoKey = key;
-                break;
-            }
-        }
-
-        if (!abonoEncontrado) {
-            showMessage('altaMessage', 'No se encontró un abono que coincida con todos los criterios', 'error');
-            return;
-        }
-
-        // Mostrar confirmación antes de eliminar
-        const confirmar = confirm(`¿Está seguro de eliminar este abono?\n\n` +
-                                `Nombre: ${abonoEncontrado.nombre}\n` +
-                                `Dirección: ${abonoEncontrado.direccion}\n` +
-                                `Monto: $${abonoEncontrado.abono.toFixed(2)}\n` +
-                                `Fecha: ${abonoEncontrado.fecha}`);
-        
-        if (!confirmar) return;
-
-        // Eliminar de Firebase
-        await dbRef.child(abonoKey).remove();
-        
-        // Actualizar también en localStorage como respaldo
-        const localDb = JSON.parse(localStorage.getItem(DB_KEY)) || [];
-        const updatedLocalDb = localDb.filter(item => 
-            !(item.nombre === abonoEncontrado.nombre && 
-              item.direccion === abonoEncontrado.direccion && 
-              item.abono === abonoEncontrado.abono && 
-              item.fecha === abonoEncontrado.fecha)
-        );
-        localStorage.setItem(DB_KEY, JSON.stringify(updatedLocalDb));
-
-        // Actualizar la deuda correspondiente (sumar el monto eliminado)
-        const deudasSnapshot = await deudasRef.orderByChild('direccion').equalTo(abonoEncontrado.direccion).once('value');
-        
-        if (deudasSnapshot.exists()) {
-            const deudaKey = Object.keys(deudasSnapshot.val())[0];
-            const deudaActual = deudasSnapshot.val()[deudaKey];
-            const nuevaDeuda = (parseFloat(deudaActual.deuda) || 0) + abonoEncontrado.abono;
-            
-            await deudasRef.child(deudaKey).update({
-                deuda: nuevaDeuda,
-                ultimaActualizacion: new Date().toISOString()
-            });
-            
-            // Actualizar también en localStorage
-            const localDeudas = JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || [];
-            const updatedLocalDeudas = localDeudas.map(d => {
-                if (d.direccion === abonoEncontrado.direccion) {
-                    return {...d, deuda: nuevaDeuda};
-                }
-                return d;
-            });
-            localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(updatedLocalDeudas));
-        }
-
-        // Limpiar solo los campos de abono, fecha y código
-        document.getElementById('abono').value = '';
-        document.getElementById('fecha').value = '';
-        document.getElementById('codigo').value = '';
-        
-        showMessage('altaMessage', 'Abono eliminado correctamente', 'success');
-    } catch (error) {
-        console.error('Error al eliminar abono:', error);
-        showMessage('altaMessage', 'Error al eliminar el abono', 'error');
+    if (!keyAEliminar) {
+      showMessage(messageId, 'No se encontró un abono que coincida en todos los campos.', 'error');
+      return;
     }
+
+    // 3) Confirmar antes de eliminar
+    const confirmText = 
+      `¿Eliminar este abono?\n\n` +
+      `Dirección: ${datosABorrar.direccion}\n` +
+      `Monto: $${datosABorrar.abono.toFixed(2)}\n` +
+      `Fecha: ${datosABorrar.fecha}\n` +
+      `Comentario: ${datosABorrar.comentario || '(vacío)'}`;
+    if (!confirm(confirmText)) {
+      return;
+    }
+
+    // 4) Eliminar de Firebase
+    await dbRef.child(keyAEliminar).remove();
+
+    // 5) Eliminar de localStorage como respaldo
+    const localDb     = JSON.parse(localStorage.getItem(DB_KEY)) || [];
+    const nuevoLocal  = localDb.filter(item =>
+      !(
+        item.direccion.trim().toLowerCase() === datosABorrar.direccion.trim().toLowerCase() &&
+        parseFloat(item.abono) === datosABorrar.abono &&
+        item.fecha === datosABorrar.fecha &&
+        ( (item.comentario||'').trim().toLowerCase() === (datosABorrar.comentario||'').trim().toLowerCase() )
+      )
+    );
+    localStorage.setItem(DB_KEY, JSON.stringify(nuevoLocal));
+
+    // 6) Limpiar campos del formulario y mostrar éxito
+    document.getElementById('abono').value      = '';
+    document.getElementById('fecha').value      = '';
+    document.getElementById('comentario').value = '';
+    showMessage(messageId, 'Abono eliminado correctamente.', 'success');
+
+  } catch (error) {
+    console.error('Error al eliminar abono:', error);
+    showMessage(messageId, 'Error al eliminar el abono. Revise la consola.', 'error');
+  }
 });
 
         // Consultar abonos
