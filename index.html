@@ -1694,19 +1694,24 @@ document.getElementById('btnGenerarCSV').addEventListener('click', async functio
     }
 
     try {
-        const snapshot = await dbRef.once('value');
-        const propietarios = snapshot.val() || {};
+        // Obtener todos los registros de deudas (usar deudasRef en lugar de dbRef)
+        const snapshot = await deudasRef.once('value');
+        const deudas = snapshot.val() || {};
 
-        let csvContent = "Nombre,Dirección,Monto de Deuda,Comentario\n";
+        // Cabecera con columna FechaRegistro
+        let csvContent = "Nombre,Dirección,Monto de Deuda,Comentario,FechaRegistro\n";
         
-        Object.values(propietarios).forEach(prop => {
-            csvContent += `"${prop.nombre}","${prop.direccion}","${prop.deuda || 0}","deuda inicial"\n`;
+        // Agregar cada registro incluyendo la fecha de registro original
+        Object.values(deudas).forEach(d => {
+            const fecha = d.fechaRegistro || '';
+            csvContent += `"${d.nombre}","${d.direccion}","${d.deuda}","${d.comentario || ''}","${fecha}"\n`;
         });
 
+        // Descargar el archivo CSV
         const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'layout_importacion.csv';
+        a.download = 'layout_importacion_con_fecha.csv';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -1736,19 +1741,22 @@ document.getElementById('btnCargarCSV').addEventListener('click', async function
 
     const reader = new FileReader();
     reader.onload = async function(event) {
-        const csvData = event.target.result.split('\n').slice(1); // Omitir la primera línea (encabezado)
+        // Omitir la primera línea (encabezado)
+        const lines = event.target.result.split('\n').slice(1);
         
-        for (let line of csvData) {
+        for (let line of lines) {
             if (line.trim() === '') continue;
             
-            const [nombre, direccion, montoDeuda, comentario] = line.split(',').map(value => value.replace(/"/g, '').trim());
+            // Ahora capturamos 5 campos: nombre, dirección, deuda, comentario y fechaRegistro
+            const [nombre, direccion, montoDeuda, comentario, fechaRegistro] =
+                line.split(',').map(v => v.replace(/"/g, '').trim());
             
             const nuevaDeuda = {
                 nombre,
                 direccion,
                 deuda: parseFloat(montoDeuda) || 0,
                 comentario,
-                fechaRegistro: new Date().toISOString()
+                fechaRegistro: fechaRegistro || new Date().toISOString()
             };
 
             await deudasRef.push(nuevaDeuda);
@@ -1759,6 +1767,7 @@ document.getElementById('btnCargarCSV').addEventListener('click', async function
 
     reader.readAsText(file);
 });
+
 
 // Función para exportar datos - Versión corregida para Firebase
 document.getElementById('btnExportar').addEventListener('click', async function() {
