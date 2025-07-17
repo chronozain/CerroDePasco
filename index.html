@@ -1685,6 +1685,7 @@ document.getElementById('btnEliminarDatos').addEventListener('click', async func
     }
 });
 
+// Generar layout CSV con columna FechaRegistro en DD/MM/YYYY
 document.getElementById('btnGenerarCSV').addEventListener('click', async function() {
     const adminCodigo = document.getElementById('adminCodigoImport').value;
     
@@ -1694,20 +1695,28 @@ document.getElementById('btnGenerarCSV').addEventListener('click', async functio
     }
 
     try {
-        // Obtener todos los registros de deudas (usar deudasRef en lugar de dbRef)
+        // Obtener todos los registros de deudas desde Firebase
         const snapshot = await deudasRef.once('value');
         const deudas = snapshot.val() || {};
 
-        // Cabecera con columna FechaRegistro
+        // Cabecera del CSV, incluyendo FechaRegistro
         let csvContent = "Nombre,Dirección,Monto de Deuda,Comentario,FechaRegistro\n";
         
-        // Agregar cada registro incluyendo la fecha de registro original
+        // Recorremos cada deuda y formateamos la fecha a DD/MM/YYYY
         Object.values(deudas).forEach(d => {
-            const fecha = d.fechaRegistro || '';
-            csvContent += `"${d.nombre}","${d.direccion}","${d.deuda}","${d.comentario || ''}","${fecha}"\n`;
+            let fechaReg = "";
+            if (d.fechaRegistro) {
+                const dt = new Date(d.fechaRegistro);
+                const dia = String(dt.getDate()).padStart(2, "0");
+                const mes = String(dt.getMonth() + 1).padStart(2, "0");
+                const año = dt.getFullYear();
+                fechaReg = `${dia}/${mes}/${año}`;
+            }
+
+            csvContent += `"${d.nombre}","${d.direccion}","${d.deuda}","${d.comentario || ""}","${fechaReg}"\n`;
         });
 
-        // Descargar el archivo CSV
+        // Crear y descargar el archivo CSV
         const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
@@ -1723,6 +1732,8 @@ document.getElementById('btnGenerarCSV').addEventListener('click', async functio
     }
 });
 
+
+// Cargar CSV e importar el campo FechaRegistro (DD/MM/YYYY) como ISO en Firebase
 document.getElementById('btnCargarCSV').addEventListener('click', async function() {
     const fileInput = document.getElementById('archivoCSV');
     const file = fileInput.files[0];
@@ -1741,24 +1752,32 @@ document.getElementById('btnCargarCSV').addEventListener('click', async function
 
     const reader = new FileReader();
     reader.onload = async function(event) {
-        // Omitir la primera línea (encabezado)
-        const lines = event.target.result.split('\n').slice(1);
+        // Omitir la primera línea (encabezado) y partir por líneas
+        const lines = event.target.result.split("\n").slice(1);
         
         for (let line of lines) {
-            if (line.trim() === '') continue;
+            if (!line.trim()) continue;
             
-            // Ahora capturamos 5 campos: nombre, dirección, deuda, comentario y fechaRegistro
-            const [nombre, direccion, montoDeuda, comentario, fechaRegistro] =
-                line.split(',').map(v => v.replace(/"/g, '').trim());
+            // Desestructurar 5 campos: nombre, dirección, monto, comentario, fechaRegistro (DD/MM/YYYY)
+            let [nombre, direccion, montoDeuda, comentario, fechaCSV] =
+                line.split(",").map(v => v.replace(/"/g, "").trim());
             
+            // Convertir DD/MM/YYYY → ISO (YYYY-MM-DDT00:00:00Z)
+            let fechaISO = new Date().toISOString();
+            if (fechaCSV) {
+                const [dd, mm, yyyy] = fechaCSV.split("/");
+                fechaISO = new Date(`${yyyy}-${mm}-${dd}T00:00:00Z`).toISOString();
+            }
+
             const nuevaDeuda = {
                 nombre,
                 direccion,
                 deuda: parseFloat(montoDeuda) || 0,
                 comentario,
-                fechaRegistro: fechaRegistro || new Date().toISOString()
+                fechaRegistro: fechaISO
             };
 
+            // Guardar en Firebase
             await deudasRef.push(nuevaDeuda);
         }
 
