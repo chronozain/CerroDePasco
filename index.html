@@ -1372,7 +1372,7 @@ document.getElementById('btnEliminar').addEventListener('click', async function(
       // Si 0 o 1 abono, deudaAnterior = totalDeudas (no se resta nada)
 
       // Balance = suma deudas - suma todos abonos
-      const balance = grupo.totalDeudas - sumaAbonos;
+      const balance = sumaAbonos - grupo.totalDeudas;
 
       // Asignar al grupo para la tabla
       grupo.sumaAbonos = sumaAbonos;
