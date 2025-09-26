@@ -490,7 +490,7 @@
             ACCESS_CODE = localStorage.getItem('access_code') || DEFAULT_ACCESS_CODE;
         }
 });
-        // Inicializar base de datos si no existe
+// Inicializar base de datos si no existe
         if (!localStorage.getItem(DB_KEY)) {
             localStorage.setItem(DB_KEY, JSON.stringify([]));
         }
@@ -1147,6 +1147,34 @@ document.getElementById('btnAlta').addEventListener('click', async function() {
         localDb.push(nuevoAbono);
         localStorage.setItem(DB_KEY, JSON.stringify(localDb));
 
+												   
+									
+
+									 
+																													 
+									   
+									  
+									 
+																							
+											
+												 
+																
+				  
+											  
+
+																						  
+															   
+																								  
+				  
+																						
+
+					  
+			 
+		 
+							   
+																																		  
+		 
+
         document.getElementById('nombre').value = '';
         document.getElementById('direccion').value = '';
         document.getElementById('abono').value = '';
@@ -1343,8 +1371,8 @@ document.getElementById('btnEliminar').addEventListener('click', async function(
       }
       // Si 0 o 1 abono, deudaAnterior = totalDeudas (no se resta nada)
 
-      // Balance = suma deudas - suma todos abonos
-      const balance = grupo.totalDeudas - sumaAbonos;
+      // Balance = suma de deudas - sumaAbonos
+      const balance = sumaAbonos - grupo.totalDeudas;
 
       // Asignar al grupo para la tabla
       grupo.sumaAbonos = sumaAbonos;
@@ -1362,7 +1390,7 @@ document.getElementById('btnEliminar').addEventListener('click', async function(
     html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
 
     Object.values(agrupados).forEach(grupo => {
-      const colorBalance = grupo.balance > 0 ? 'text-red-600' : 'text-green-600'; // Positivo: debe (rojo), negativo: crédito (verde)
+      const colorBalance = grupo.balance < 0 ? 'text-red-600' : 'text-green-600'; // Positivo: debe (rojo), negativo: crédito (verde)
 
       html += '<tr class="hover:bg-gray-50">';
       html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.nombre}</td>`;
@@ -1548,45 +1576,54 @@ document.getElementById('btnDeudaManual').addEventListener('click', async functi
     }
 
     try {
-        // Buscar si ya existe una deuda para esta dirección
-        const snapshot = await deudasRef.orderByChild('direccion').equalTo(direccion).once('value');
+        // Crear nueva deuda SIEMPRE (push en lugar de update)
+        const nuevaDeuda = {
+            nombre,
+            direccion,
+            deuda: monto,
+            fechaRegistro: new Date().toISOString(),
+            ultimaActualizacion: new Date().toISOString(),
+            esManual: true
+        };
         
-        if (snapshot.exists()) {
-            // Actualizar deuda existente
-            const key = Object.keys(snapshot.val())[0];
-            const deudaActual = snapshot.val()[key];
-            const nuevaDeuda = parseFloat(deudaActual.deuda) + monto;
-            
-            await deudasRef.child(key).update({
-                deuda: nuevaDeuda,
-                ultimaActualizacion: new Date().toISOString(),
-                esManual: true
-            });
-            
-            // Actualizar también en localStorage como respaldo
-            const localDeudas = JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || [];
-            const updatedLocalDeudas = localDeudas.map(d => 
-                d.direccion === direccion ? {...d, deuda: nuevaDeuda} : d
-            );
-            localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(updatedLocalDeudas));
-        } else {
-            // Crear nueva deuda
-            const nuevaDeuda = {
-                nombre,
-                direccion,
-                deuda: monto,
-                fechaRegistro: new Date().toISOString(),
-                ultimaActualizacion: new Date().toISOString(),
-                esManual: true
-            };
-            
-            await deudasRef.push(nuevaDeuda);
-            
-            // Guardar también en localStorage como respaldo
-            const localDeudas = JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || [];
-            localDeudas.push(nuevaDeuda);
-            localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(localDeudas));
-        }
+        await deudasRef.push(nuevaDeuda);
+        
+								
+										 
+													   
+													
+																	 
+			
+											   
+								  
+															  
+							  
+			   
+			
+        // Guardar también en localStorage como respaldo
+        const localDeudas = JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || [];
+															
+																		 
+			  
+																					
+				
+								
+								
+					   
+						  
+							 
+														
+															  
+							  
+			  
+			
+											 
+			
+															 
+																																 
+        localDeudas.push(nuevaDeuda);
+        localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(localDeudas));
+		 
 
         // Limpiar formulario
         document.getElementById('deudaManualForm').reset();
@@ -1891,59 +1928,84 @@ document.getElementById('btnExportar').addEventListener('click', async function(
 <div id="comprobanteModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
     <div class="bg-white rounded-lg shadow-xl w-full max-w-md">
         <div class="p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-2xl font-bold text-indigo-700">Comprobante de Pago</h3>
-                <button id="cerrarComprobante" class="text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            
-            <div class="border-b pb-4 mb-4">
-                <div class="flex justify-between mb-2">
-                    <span class="text-gray-600">N° Comprobante:</span>
-                    <span class="font-medium" id="comprobanteNumero"></span>
+            <div class="p-6">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-2xl font-bold text-indigo-700">Comprobante de Pago</h3>
+                    <button id="cerrarComprobante" class="text-gray-500 hover:text-gray-700">
+                        <i class="fas fa-times"></i>
+                    </button>
+				  
+			
+											
+													   
+																	   
+																			
                 </div>
-                <div class="flex justify-between mb-2">
-                    <span class="text-gray-600">Fecha:</span>
-                    <span class="font-medium" id="comprobanteFecha"></span>
-                </div>
-            </div>
-            
-            <div class="mb-6">
-                <h4 class="text-lg font-semibold text-gray-800 mb-2">Detalles del Pago</h4>
-                <div class="bg-gray-50 p-4 rounded-lg">
+                
+															 
+																		   
+					  
+				  
+			
+                <div class="border-b pb-4 mb-4">
+																						   
+													   
                     <div class="flex justify-between mb-2">
-                        <span class="text-gray-600">Propietario:</span>
-                        <span class="font-medium" id="comprobanteNombre"></span>
+                        <span class="text-gray-600">N° Comprobante:</span>
+                        <span class="font-medium" id="comprobanteNumero"></span>
                     </div>
                     <div class="flex justify-between mb-2">
-                        <span class="text-gray-600">Dirección:</span>
-                        <span class="font-medium" id="comprobanteDireccion"></span>
-                    </div>
-                    <div class="flex justify-between mb-2">
-    <span class="text-gray-600">Comentario:</span>
-    <span class="font-medium" id="comprobanteComentario"></span>
-</div>
-                    <div class="flex justify-between">
-                        <span class="text-gray-600">Monto:</span>
-                        <span class="text-xl font-bold text-green-600" id="comprobanteMonto"></span>
+                        <span class="text-gray-600">Fecha:</span>
+                        <span class="font-medium" id="comprobanteFecha"></span>
                     </div>
                 </div>
+                
+                <div class="mb-6">
+                    <h4 class="text-lg font-semibold text-gray-800 mb-2">Detalles del Pago</h4>
+                    <div class="bg-gray-50 p-4 rounded-lg">
+                        <div class="flex justify-between mb-2">
+                            <span class="text-gray-600">Propietario:</span>
+                            <span class="font-medium" id="comprobanteNombre"></span>
+                        </div>
+                        <div class="flex justify-between mb-2">
+                            <span class="text-gray-600">Dirección:</span>
+                            <span class="font-medium" id="comprobanteDireccion"></span>
+                        </div>
+                        <div class="flex justify-between mb-2">
+        <span class="text-gray-600">Comentario:</span>
+        <span class="font-medium" id="comprobanteComentario"></span>
+    </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Monto:</span>
+                            <span class="text-xl font-bold text-green-600" id="comprobanteMonto"></span>
+                        </div>
+                    </div>
+                </div>
+                
+			
+                <div class="border-t pt-4 text-center text-sm text-gray-500">
+                    <p>Gracias por su pago. Este comprobante es válido como recibo oficial.</p>
+                    <p class="mt-2">Administración de Condominios Cerro de Pasco</p>
+                </div>
+                
+                <div class="mt-6 flex justify-center space-x-4">
+                    <button id="imprimirComprobante" class="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fas fa-print mr-2"></i> Imprimir
+                    </button>
+                    <button id="compartirComprobante" class="bg-green-600 text-white px-4 py-2 rounded-md flex items-center">
+                        <i class="fas fa-share-alt mr-2"></i> Compartir
+                    </button>
+                </div>
             </div>
-            
-            <div class="border-t pt-4 text-center text-sm text-gray-500">
-                <p>Gracias por su pago. Este comprobante es válido como recibo oficial.</p>
-                <p class="mt-2">Administración de Condominios Cerro de Pasco</p>
-            </div>
-            
-            <div class="mt-6 flex justify-center space-x-4">
-                <button id="imprimirComprobante" class="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center">
-                    <i class="fas fa-print mr-2"></i> Imprimir
-                </button>
-                <button id="compartirComprobante" class="bg-green-600 text-white px-4 py-2 rounded-md flex items-center">
-                    <i class="fas fa-share-alt mr-2"></i> Compartir
-                </button>
-            </div>
+			
+															
+																														 
+															  
+						 
+																														 
+																   
+						 
+				  
         </div>
     </div>
 </div>
