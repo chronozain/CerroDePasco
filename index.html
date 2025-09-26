@@ -759,7 +759,7 @@ async function getDatabase() {
     return isValid;
 }
 
-    async function validarDeudaManual() {
+async function validarDeudaManual() {
     let isValid = true;
     const nombre = document.getElementById('deudaManualNombre');
     const direccion = document.getElementById('deudaManualDireccion');
@@ -1328,7 +1328,7 @@ document.getElementById('btnEliminar').addEventListener('click', async function(
       return;
     }
 
-    // 3) Agrupar por propietario|dirección y acumular abonos y deudas
+    // 3) Agrupar por propietario|dirección y recolectar abonos y suma de deudas
     const agrupados = {};
     resultados.forEach(item => {
       const key = `${item.nombre}|${item.direccion}`;
@@ -1336,23 +1336,51 @@ document.getElementById('btnEliminar').addEventListener('click', async function(
         agrupados[key] = {
           nombre: item.nombre,
           direccion: item.direccion,
-          totalAbonos: 0,
-          deudaAnterior: 0
+          abonos: [],
+          totalDeudas: 0
         };
       }
 
-      // Sumar abonos
-      if (item.tipo === 'abono' && typeof item.abono === 'number') {
-        agrupados[key].totalAbonos += item.abono;
+      // Recolectar abonos (con fecha y monto)
+      if (item.tipo === 'abono') {
+        agrupados[key].abonos.push({
+          fecha: item.fecha,
+          monto: parseFloat(item.abono) || 0
+        });
       }
 
-      // Sumar todas las deudas
-      if (item.tipo === 'deuda' && typeof item.deuda === 'number') {
-        agrupados[key].deudaAnterior += item.deuda;
+      // Sumar deudas
+      if (item.tipo === 'deuda') {
+        agrupados[key].totalDeudas += parseFloat(item.deuda) || 0;
       }
     });
 
-    // 4) Renderizar tabla
+    // 4) Para cada grupo, calcular totalAbonos, deudaAnterior y balance
+    Object.values(agrupados).forEach(grupo => {
+      // Ordenar abonos por fecha ascendente
+      grupo.abonos.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+
+      // Suma total de abonos
+      const sumaAbonos = grupo.abonos.reduce((sum, ab) => sum + ab.monto, 0);
+
+      // Calcular deudaAnterior según la lógica descrita
+      let deudaAnterior = grupo.totalDeudas;
+      if (grupo.abonos.length > 1) {
+        const sumaAbonosAnteriores = grupo.abonos.slice(0, -1).reduce((sum, ab) => sum + ab.monto, 0);
+        deudaAnterior -= sumaAbonosAnteriores;
+      }
+      // Si 0 o 1 abono, deudaAnterior = totalDeudas (no se resta nada)
+
+      // Balance = suma deudas - suma todos abonos
+      const balance = grupo.totalDeudas - sumaAbonos;
+
+      // Asignar al grupo para la tabla
+      grupo.sumaAbonos = sumaAbonos;
+      grupo.deudaAnterior = deudaAnterior;
+      grupo.balance = balance;
+    });
+
+    // 5) Renderizar tabla
     let html = '<div class="overflow-x-auto"><table class="min-w-full divide-y divide-gray-200">';
     html += '<thead class="bg-gray-50"><tr>';
     ['Nombre','Dirección','Total Abonos','Deuda Anterior','Balance']
@@ -1362,15 +1390,14 @@ document.getElementById('btnEliminar').addEventListener('click', async function(
     html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
 
     Object.values(agrupados).forEach(grupo => {
-      const balance = grupo.totalAbonos - grupo.deudaAnterior;
-      const colorBalance = balance < 0 ? 'text-red-600' : 'text-green-600';
+      const colorBalance = grupo.balance > 0 ? 'text-red-600' : 'text-green-600'; // Positivo: debe (rojo), negativo: crédito (verde)
 
       html += '<tr class="hover:bg-gray-50">';
       html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.nombre}</td>`;
       html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.direccion}</td>`;
-      html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$${grupo.totalAbonos.toFixed(2)}</td>`;
+      html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$${grupo.sumaAbonos.toFixed(2)}</td>`;
       html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">$${grupo.deudaAnterior.toFixed(2)}</td>`;
-      html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${colorBalance}">$${balance.toFixed(2)}</td>`;
+      html += `<td class="px-6 py-4 whitespace-nowrap text-sm font-medium ${colorBalance}">$${grupo.balance.toFixed(2)}</td>`;
       html += '</tr>';
     });
 
