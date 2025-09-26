@@ -1147,34 +1147,6 @@ document.getElementById('btnAlta').addEventListener('click', async function() {
         localDb.push(nuevoAbono);
         localStorage.setItem(DB_KEY, JSON.stringify(localDb));
 
-        const deudasDb = await getDeudasDatabase();
-        let deudaEncontrada = false;
-
-        for (const key in deudasDb) {
-            if (deudasDb[key].direccion && deudasDb[key].direccion.toLowerCase() === direccionActual.toLowerCase()) {
-                deudaEncontrada = true;
-                const updatedDeuda = {
-                    ...deudasDb[key],
-                    deuda: Math.max(0, (parseFloat(deudasDb[key].deuda) || 0) - abonoValor),
-                    ultimoAbono: fechaValor,
-                    ultimoAbonoMonto: abonoValor,
-                    fechaActualizacion: new Date().toISOString()
-                };
-                await saveDeuda(updatedDeuda);
-
-                const localDeudas = JSON.parse(localStorage.getItem(DB_DEUDAS_KEY)) || [];
-                const updatedLocalDeudas = localDeudas.map(d =>
-                    d.direccion.toLowerCase() === direccionActual.toLowerCase() ? updatedDeuda : d
-                );
-                localStorage.setItem(DB_DEUDAS_KEY, JSON.stringify(updatedLocalDeudas));
-
-                break;
-            }
-        }
-        if (!deudaEncontrada) {
-             console.log(`No hay deuda registrada para la dirección "${direccionActual}" al registrar el abono. No se actualiza deuda.`);
-        }
-
         document.getElementById('nombre').value = '';
         document.getElementById('direccion').value = '';
         document.getElementById('abono').value = '';
@@ -1372,7 +1344,7 @@ document.getElementById('btnEliminar').addEventListener('click', async function(
       // Si 0 o 1 abono, deudaAnterior = totalDeudas (no se resta nada)
 
       // Balance = suma deudas - suma todos abonos
-      const balance = sumaAbonos - grupo.totalDeudas;
+      const balance = grupo.totalDeudas - sumaAbonos;
 
       // Asignar al grupo para la tabla
       grupo.sumaAbonos = sumaAbonos;
@@ -1390,7 +1362,7 @@ document.getElementById('btnEliminar').addEventListener('click', async function(
     html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
 
     Object.values(agrupados).forEach(grupo => {
-      const colorBalance = grupo.balance < 0 ? 'text-red-600' : 'text-green-600'; // Positivo: debe (rojo), negativo: crédito (verde)
+      const colorBalance = grupo.balance > 0 ? 'text-red-600' : 'text-green-600'; // Positivo: debe (rojo), negativo: crédito (verde)
 
       html += '<tr class="hover:bg-gray-50">';
       html += `<td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${grupo.nombre}</td>`;
